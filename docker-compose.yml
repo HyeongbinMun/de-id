@@ -5,7 +5,7 @@ services:
     container_name: de-id_main
     build:
       context: ./
-      dockerfile: docker/main/Dockerfile
+      dockerfile: docker/Dockerfile
     runtime: nvidia
     restart: always
     ipc: "host"
