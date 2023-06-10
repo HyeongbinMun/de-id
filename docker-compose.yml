@@ -10,7 +10,7 @@ services:
     restart: always
     ipc: "host"
     env_file:
-      - "docker/main.env"
+      - "docker/dockerenv.env"
     volumes:
       - /media/mmlab/hdd:/hdd
       - type: volume
