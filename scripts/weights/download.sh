@@ -10,7 +10,13 @@ else
 fi
 
 echo "======================================="
-echo "Download start(yolov5m-face)"
-wget ftp://mldisk.sogang.ac.kr/models/yolov5-face/yolov5m-face.pt -O /workspace/models/weights/yolov5m-face.pt
-echo "Download successfully complete(yolov5m-face)"
+echo "Download start(yolov5-face)"
+wget -q ftp://mldisk.sogang.ac.kr/models/yolov5-face/yolov5m-face.pt -O /workspace/models/weights/yolov5m-face.pt \
+&& echo "Download successful(yolov5-face)" \
+|| echo -e "\e[31mDownload faile(yolov5-face)\e[0m"
+echo "======================================="
+echo "Download start(yolov7-face)"
+wget -q ftp://mldisk.sogang.ac.kr/models/yolov7-face/yolov7-w6-face.pt -O /workspace/models/weights/yolov7-w6-face.pt \
+&& echo "Download successful(yolov7-face)" \
+|| echo -e "\e[31mDownload faile(yolov7-face)\e[0m"
 echo "======================================="
