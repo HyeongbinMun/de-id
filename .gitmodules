@@ -1,6 +1,9 @@
 [submodule "model/det/face/yolov5"]
 	path = model/det/face/yolov5
 	url = https://github.com/jinhasong/yolov5-face
+[submodule "model/det/face/yolov8"]
+	path = model/det/face/yolov8
+	url = https://github.com/jinhasong/yolov8-face
 [submodule "model/det/face/yolov7"]
 	path = model/det/face/yolov7
 	url = https://github.com/jinhasong/yolov7-face
