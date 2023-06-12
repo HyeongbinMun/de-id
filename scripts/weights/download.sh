@@ -1,4 +1,4 @@
-DIR="/workspace/models/weights"
+DIR="/workspace/model/weights"
 
 # Check if the directory exists
 if [ ! -d "$DIR" ]; then
