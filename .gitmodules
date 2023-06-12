@@ -1,9 +1,0 @@
-[submodule "model/det/face/yolov5"]
-	path = model/det/face/yolov5
-	url = https://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@github.com/jinhasong/yolov5-face.git
-[submodule "model/det/face/yolov7"]
-    path = model/det/face/yolov7
-    url = https://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@github.com/jinhasong/yolov7-face.git
-[submodule "model/det/face/yolov8"]
-    path = model/det/face/yolov8
-    url = https://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@github.com/jinhasong/yolov8-face.git
