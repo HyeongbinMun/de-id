@@ -17,7 +17,7 @@ if __name__ == '__main__':
     image = cv2.imread(image_path)
 
     params = {
-        "model_path": "/workspace/models/weights/yolov5m-face.pt",
+        "model_path": "/workspace/model/weights/yolov5m-face.pt",
         "device": torch.device("cuda" if torch.cuda.is_available() else "cpu"),
         "image_size": 640,
         "conf_thresh": 0.3,
