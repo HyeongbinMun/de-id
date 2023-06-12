@@ -1,0 +1,3 @@
+[submodule "model/det/face/yolov5"]
+	path = model/det/face/yolov5
+	url = https://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@github.com/jinhasong/yolov5-face
