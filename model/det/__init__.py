@@ -22,4 +22,8 @@ class Detection:
         :return:       infer result
                        - format: [[cls, cls_idx, score, x, y, w, h], [cls, cls_idx, score, x, y, w, h]...]
         """
-        return None
+        result = []
+        for i, image in enumerate(images):
+            result.append(self.detect(image))
+
+        return result
