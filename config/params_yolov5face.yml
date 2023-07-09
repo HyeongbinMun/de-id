@@ -1,0 +1,7 @@
+infer:
+  model_name: yolov5m-face
+  model_path: /workspace/model/weights/yolov5m-face.pt
+  device: 0
+  image_size: 640
+  conf_thresh: 0.3
+  iou_thresh: 0.5
