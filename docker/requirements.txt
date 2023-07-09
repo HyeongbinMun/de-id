@@ -6,6 +6,8 @@ Pillow
 PyYAML>=5.3.1
 scipy>=1.4.1
 tqdm>=4.41.0
+PyYaml==5.4
+ruamel.yaml==0.17.21
 
 # logging -------------------------------------
 tensorboard>=2.4.1
