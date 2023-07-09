@@ -35,7 +35,8 @@ services:
           nocopy: true
     ports:
       - "18000:8000"
-      - "18888:8000"
+      - "18001:8001"
+      - "18888:8888"
       - "10022:22"
     stdin_open: true
     tty: true
