@@ -4,12 +4,14 @@ train:
   device: 0
   master_addr: 0.0.0.0
   master_port: "8000"
-  batch_size: 48
-  learning_rate: 0.001
+  batch_size: 44
+  learning_rate: 0.0001
   epoch: 100
   dataset_dir: /dataset/images_1080_0.1/
   save_dir: /hdd/feature_inversion/
   valid_epoch: 5
+  resume: False
+  pretrained_model_path: /hdd/feature_inversion/20230710_043552_ResNet50UNetInverter/weights/epoch_25.pth
   model:
     feature:
       model_name: MobileNet_AVG
@@ -17,8 +19,8 @@ train:
     inverter: ResNet50UNetInverter
   lambda:
     feature_mse: 1
-    feature_cosine: 0.5
-    region_ssim: 0.5
+    feature_cosine: 0
+    region_mse: 1
   wandb:
     project_name: FeatureInversion
     account: jinhasong

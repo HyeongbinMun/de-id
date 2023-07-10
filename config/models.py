@@ -1,6 +1,7 @@
 from model.det.face.yolov5.yolov5_face import YOLOv5Face
 from model.det.face.yolov7.yolov7_face import YOLOv7Face
 from model.vcd.models.mobilenetv2_avg import MobileNet_AVG
+from model.deid.feature_inversion.models.mobile_unet import MobileUNetInverter
 from model.deid.feature_inversion.models.resnet50_unet import ResNet50UNetInverter
 from model.deid.feature_inversion.models.mobilenetv2_unet import MobileNetV2UNetInverter
 from model.deid.feature_inversion.models.mobilenetv3_unet import MobileNetV3SmallUNetInverter
@@ -18,6 +19,7 @@ model_classes = {
     },
     "deid": {
         "cyclegan": "",
+        "MobileUNetInverter": MobileUNetInverter,
         "ResNet50UNetInverter": ResNet50UNetInverter,
         "MobileNetV2UNetInverter": MobileNetV2UNetInverter,
         "MobileNetV3SmallUNetInverter": MobileNetV3SmallUNetInverter,

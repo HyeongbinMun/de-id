@@ -19,35 +19,25 @@ from torch.utils.data.distributed import DistributedSampler
 
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from utility import logging
 from utility.params import load_params_yml
+from utility import logging
+from utility.image.ssim import ssim
 from utility.image.file import save_tensort2image
+from utility.image.color_histogram import calculate_histogram_similarity
+from utility.model.model_file import save_checkpoint, load_checkpoint
 from model.deid.feature_inversion.dataset.dataset import DNADBDataset
 from config.models import model_classes
 
-
-def ssim(img1, img2, C1=0.01**2, C2=0.03**2):
-    mu1 = F.avg_pool2d(img1, 3, 1)
-    mu2 = F.avg_pool2d(img2, 3, 1)
-    mu1_mu2 = mu1*mu2
-    mu1_sq = mu1.pow(2)
-    mu2_sq = mu2.pow(2)
-
-    sigma1_sq = F.avg_pool2d(img1*img1, 3, 1) - mu1_sq
-    sigma2_sq = F.avg_pool2d(img2*img2, 3, 1) - mu2_sq
-    sigma12 = F.avg_pool2d(img1*img2, 3, 1) - mu1_mu2
-
-    ssim_map = ((2*mu1_mu2 + C1)*(2*sigma12 + C2))/((mu1_sq + mu2_sq + C1)*(sigma1_sq + sigma2_sq + C2))
-
-    return ssim_map.mean().clamp(0, 1)
 
 def validate(valid_loader, feature_model, inversion_model, loss_fns, device, params, inverted_images_dir):
     feature_model.eval()
     inversion_model.eval()
 
-    l1_loss_fn, mse_loss_fn, cosine_similarity, ssim_loss_fn = loss_fns
-    lrs = params["lambda"]["region_ssim"]   # lambda region image mse
-    lfm = params["lambda"]["feature_mse"]   # lambda MobileNet_AVG feature mse
+    l1_loss_fn, mse_loss_fn, cosine_similarity, region_sim_loss_fn = loss_fns
+
+    cosine_similarity = nn.CosineSimilarity(dim=1, eps=1e-6)
+    lrs = params["lambda"]["region_mse"]     # lambda region image mse
+    lfm = params["lambda"]["feature_mse"]    # lambda MobileNet_AVG feature mse
     lfc = params["lambda"]["feature_cosine"] # lambda MobileNet_AVG cosine similarity
 
     valid_loss = 0.0
@@ -70,14 +60,15 @@ def validate(valid_loader, feature_model, inversion_model, loss_fns, device, par
                     if (x2 - x1) != 0 and (y2 - y1) != 0:
                         region = images[i, :, y1:y2, x1:x2].clone()
                         if region.shape[1] > 10 and region.shape[2] > 10:
-                            region_resized = F.interpolate(region.unsqueeze(0), size=(224, 224), mode='bilinear',
-                                                           align_corners=False)
+                            region_resized = F.interpolate(region.unsqueeze(0), size=(224, 224), mode='bilinear', align_corners=False)
                             region_inverted = inversion_model(region_resized)
-                            region_inverted_resized = F.interpolate(region_inverted,
-                                                                    size=(int(region.shape[1]), int(region.shape[2])),
-                                                                    mode='bilinear', align_corners=False)
-                            ssim_loss = 1 - ssim(region.unsqueeze(0), region_inverted_resized)
-                            region_losses.append(ssim_loss.item())
+                            region_inverted_resized = F.interpolate(region_inverted, size=(int(region.shape[1]), int(region.shape[2])), mode='bilinear', align_corners=False)
+                            sim_loss = mse_loss_fn(region_resized, region_inverted)
+                            region_losses.append(sim_loss)
+                            # sim_loss = 1 - sim_loss_fn(region.unsqueeze(0), region_inverted_resized)
+                            # region_losses.append(sim_loss.item())
+                            # sim_loss = region_sim_loss_fn(region.unsqueeze(0), region_inverted_resized.detach())
+                            # region_losses.append(sim_loss)
                             inverted_images[i, :, y1:y2, x1:x2] = region_inverted_resized.squeeze(0)
 
             region_loss = torch.mean(torch.Tensor(region_losses)).item()
@@ -97,7 +88,7 @@ def validate(valid_loader, feature_model, inversion_model, loss_fns, device, par
             lfeature_mse_loss = lfm * feature_mse_loss
             lfeature_cos_loss = lfc * feature_cos_loss
             lregion_ssim_loss = lrs * region_loss
-            loss = 1 - (lfeature_mse_loss + lfeature_cos_loss + lregion_ssim_loss)
+            loss = (lfeature_mse_loss + lfeature_cos_loss + lregion_ssim_loss)
 
             selected_indices = random.sample(range(len(inverted_images)), 5)
             for i in selected_indices:
@@ -150,21 +141,22 @@ def train(rank, world_size, params):
                                    collate_fn=DNADBDataset.collate_fn)
 
     print(logging.i("Dataset Description"))
-    print(logging.s(f"\ttraining  : {len(train_dataset)}"))
-    print(logging.s(f"\tvalidation: {len(valid_dataset)}"))
-    print(logging.s(f"\ttest      : {len(test_dataset)}"))
+    print(logging.s(f"    training     : {len(train_dataset)}"))
+    print(logging.s(f"    validation   : {len(valid_dataset)}"))
+    print(logging.s(f"    test         : {len(test_dataset)}"))
     print(logging.i("Parameters Description"))
-    print(logging.s(f"\tDevice     : {params['device']}"))
-    print(logging.s(f"\tBatch size : {params['batch_size']}"))
-    print(logging.s(f"\tMax epoch  : {params['epoch']}"))
-    print(logging.s(f"\tValid epoch: {params['valid_epoch']}"))
-    print(logging.s(f"\tModel:"))
-    print(logging.s(f"\t\t-Feature extractor: {params['model']['feature']['model_name']}"))
-    print(logging.s(f"\t\t-Feature inverter : {params['model']['inverter']}"))
-    print(logging.s(f"\tLoss lambda:"))
-    print(logging.s(f"\t\t-Feature MSE              : {params['lambda']['feature_mse']}"))
-    print(logging.s(f"\t\t-Feature cosine similarity: {params['lambda']['feature_cosine']}"))
-    print(logging.s(f"\t\t-SSIM of each face regions: {params['lambda']['region_ssim']}"))
+    print(logging.s(f"    Device       : {params['device']}"))
+    print(logging.s(f"    Batch size   : {params['batch_size']}"))
+    print(logging.s(f"    Max epoch    : {params['epoch']}"))
+    print(logging.s(f"    Learning rate: {params['epoch']}"))
+    print(logging.s(f"    Valid epoch: {params['valid_epoch']}"))
+    print(logging.s(f"    Model:"))
+    print(logging.s(f"    - Feature extractor: {params['model']['feature']['model_name']}"))
+    print(logging.s(f"    - Feature inverter : {params['model']['inverter']}"))
+    print(logging.s(f"Loss lambda:"))
+    print(logging.s(f"- Feature MSE              : {params['lambda']['feature_mse']}"))
+    print(logging.s(f"- Feature cosine similarity: {params['lambda']['feature_cosine']}"))
+    print(logging.s(f"- MSE of each face regions : {params['lambda']['region_mse']}"))
 
     save_dir = params["save_dir"]
     start_timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -188,27 +180,31 @@ def train(rank, world_size, params):
 
     inversion_model = model_classes["deid"][params["model"]["inverter"]]().to(device)
     # inversion_model = DistributedDataParallel(inversion_model, device_ids=[rank], find_unused_parameters=True)
-    wandb.watch(inversion_model)
     optimizer = optim.Adam(inversion_model.parameters(), lr=params["learning_rate"])
+    if params["resume"]:
+        inversion_model, optimizer, start_epoch, best_loss = load_checkpoint(inversion_model, optimizer, params["resume_from_checkpoint"])
+    else:
+        start_epoch = 0
+        best_loss = float('inf')
+    num_epochs = params["epoch"]
+    wandb.watch(inversion_model)
 
     l1_loss_fn = nn.L1Loss()
     mse_loss_fn = nn.MSELoss()
-    ssim_loss_fn = ssim
+    # region_sim_loss_fn = ssim
+    region_sim_loss_fn = calculate_histogram_similarity
     cosine_similarity = nn.CosineSimilarity(dim=1, eps=1e-6)
 
     lfm = params["lambda"]["feature_mse"]    # lambda MobileNet_AVG feature mse
     lfc = params["lambda"]["feature_cosine"] # lambda MobileNet_AVG cosine similarity
-    lrs = params["lambda"]["region_ssim"]    # lambda region image mse
-
-    best_loss = float('inf')
-    num_epochs = params["epoch"]
+    lrs = params["lambda"]["region_mse"]     # lambda region image mse
 
     torch.autograd.set_detect_anomaly(True)
 
     terminal_size = shutil.get_terminal_size().columns
     print("Status   Dev   Epoch  Loss ( mse  / cos  /region)")
     print("-" * terminal_size)
-    for epoch in range(num_epochs):
+    for epoch in range(start_epoch, num_epochs):
         epoch_loss = 0.0
         progress_bar = tqdm(enumerate(train_loader), total=len(train_loader))
         for batch_idx, (image_path, label_path, images, boxes_list) in progress_bar:
@@ -229,8 +225,8 @@ def train(rank, world_size, params):
                             region_resized = F.interpolate(region.unsqueeze(0), size=(224, 224), mode='bilinear', align_corners=False)
                             region_inverted = inversion_model(region_resized)
                             region_inverted_resized = F.interpolate(region_inverted, size=(int(region.shape[1]), int(region.shape[2])), mode='bilinear', align_corners=False)
-                            ssim_loss = 1 - ssim_loss_fn(region.unsqueeze(0), region_inverted_resized)
-                            region_losses.append(ssim_loss.item())
+                            sim_loss = mse_loss_fn(region_resized, region_inverted)
+                            region_losses.append(sim_loss)
                             inverted_images[i, :, y1:y2, x1:x2] = region_inverted_resized.squeeze(0)
 
             region_loss = torch.mean(torch.Tensor(region_losses)).item()
@@ -253,7 +249,7 @@ def train(rank, world_size, params):
             lfeature_cos_loss = lfc * feature_cos_loss
             lregion_ssim_loss = lrs * region_loss
 
-            loss = 1 - (lfeature_mse_loss + lfeature_cos_loss + lregion_ssim_loss)
+            loss = lfeature_mse_loss + lfeature_cos_loss + lregion_ssim_loss
             if torch.isfinite(loss):
                 loss.backward()
                 optimizer.step()
@@ -264,18 +260,18 @@ def train(rank, world_size, params):
             progress_bar.set_description(f"Train  {rank:^5} {epoch+1:>3}/{num_epochs:>3} {loss:.4f}({feature_mse_loss:.4f}/{feature_cos_loss:.4f}/{region_loss:.4f})")
 
         epoch_loss /= len(train_loader)
-        torch.save(inversion_model.state_dict(), os.path.join(model_save_dir, f"epoch_{epoch}.pth"))
+        save_checkpoint(epoch, inversion_model, optimizer, epoch_loss, os.path.join(model_save_dir, f"epoch_{epoch+1:06d}.pth"))
 
         wandb.log({"Train Loss": epoch_loss, "Epoch": epoch})
         if epoch_loss < best_loss:
             best_loss = epoch_loss
-            torch.save(inversion_model.state_dict(), os.path.join(model_save_dir, f"best_{start_timestamp}.pth"))
+            save_checkpoint(epoch, inversion_model, optimizer, epoch_loss, os.path.join(model_save_dir, f"epoch_{epoch+1:06d}.pth"))
 
         if (epoch + 1) % params["valid_epoch"] == 0:
             epoch_inverted_images_dir = os.path.join(inverted_images_dir, f"epoch-{epoch + 1}")
             if not os.path.exists(epoch_inverted_images_dir):
                 os.makedirs(epoch_inverted_images_dir)
-            valid_loss = validate(valid_loader, feature_model, inversion_model, (l1_loss_fn, mse_loss_fn, cosine_similarity, ssim_loss_fn), device, params, epoch_inverted_images_dir)
+            valid_loss = validate(valid_loader, feature_model, inversion_model, (l1_loss_fn, mse_loss_fn, cosine_similarity, region_sim_loss_fn), device, params, epoch_inverted_images_dir)
             print(f"Validation Loss at epoch {epoch + 1}: {valid_loss}")
             wandb.log({"Validation Loss": valid_loss, "Epoch": epoch})
 
@@ -301,6 +297,6 @@ if __name__ == '__main__':
     os.environ['MASTER_ADDR'] = params["master_addr"]
     os.environ['MASTER_PORT'] = params["master_port"]
     start_timestamp = datetime.datetime.now().strftime("%m%d_%H%M%S")
-    wandb_run_name = f"{params['model']['inverter']}-{start_timestamp}"
+    wandb_run_name = f"{start_timestamp}-{params['model']['inverter']}"
     wandb.init(project=params['wandb']['project_name'], entity=params['wandb']['account'], name=wandb_run_name)
     main(params)

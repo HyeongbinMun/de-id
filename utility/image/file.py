@@ -36,7 +36,7 @@ def save_tensort2image(image, path):
 
 
 def save_bbox_image_xywh(save_path, image, labels):
-    for label in labels:
+    for i, label in enumerate(labels):
         _, cls, conf, x, y, width, height = label
 
         left = int(x)
@@ -45,7 +45,7 @@ def save_bbox_image_xywh(save_path, image, labels):
         bottom = int(y + height)
 
         txt_loc = (max(left + 2, 0), max(top + 2, 0))
-        txt = '{:.2f}'.format(conf)
+        txt = 'i: {:.2f}'.format(conf)
         image = draw_boxed_text(image, txt, txt_loc, (0, 255, 0))
 
         cv2.rectangle(image, (left, top), (right, bottom), (0, 255, 0), 2)

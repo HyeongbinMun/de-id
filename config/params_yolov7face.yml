@@ -3,6 +3,6 @@ infer:
   model_path: /workspace/model/weights/yolov7-w6-face.pt
   device: 0
   image_size: 1280
-  conf_thresh: 0.5
+  conf_thresh: 0.7
   iou_thresh: 0.5
   batch_size: 60
