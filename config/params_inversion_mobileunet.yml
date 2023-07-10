@@ -1,0 +1,24 @@
+infer:
+  model_name: feature_inversion
+train:
+  device: 1
+  master_addr: localhost
+  master_port: "8001"
+  batch_size: 32
+  learning_rate: 0.0001
+  epoch: 100
+  dataset_dir: /dataset/images_1080_0.1/
+  save_dir: /hdd/feature_inversion/
+  valid_epoch: 5
+  model:
+    feature:
+      model_name: MobileNet_AVG
+      feature_weight_path: /workspace/model/weights/mobilenet_avg_ep16_ckpt.pth
+    inverter: MobileUNetInverter
+  lambda:
+    feature_mse: 1
+    feature_cosine: 0
+    region_mse: 1
+  wandb:
+    project_name: FeatureInversion
+    account: jinhasong
