@@ -25,13 +25,9 @@ def save_tensort2image(image, path):
         path (str): The path where the image will be saved.
 
     """
-    # Check if the image tensor is on the GPU and if so send it back to the CPU
     image = image.cpu()
-
-    # Unnormalize the image
     image = (image * 0.5) + 0.5
 
-    # Add a dimension to the image tensor and save it
     vutils.save_image(image.unsqueeze(0), path)
 
 
