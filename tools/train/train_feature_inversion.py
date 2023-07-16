@@ -27,6 +27,7 @@ from config.models import model_classes
 def invert_regions(images, boxes_list, inversion_model, mse_loss_fn, params):
     inverted_images = images.clone()
     region_losses = []
+    image_size = params["model"]["inverter"]["input_size"]
 
     for i, boxes in enumerate(boxes_list):
         for box in boxes:
@@ -39,7 +40,7 @@ def invert_regions(images, boxes_list, inversion_model, mse_loss_fn, params):
             if (x2 - x1) != 0 and (y2 - y1) != 0:
                 region = images[i, :, y1:y2, x1:x2].clone()
                 if region.shape[1] > 10 and region.shape[2] > 10:
-                    region_resized = F.interpolate(region.unsqueeze(0), size=(224, 224), mode='bilinear', align_corners=False)
+                    region_resized = F.interpolate(region.unsqueeze(0), size=(image_size, image_size), mode='bilinear', align_corners=False)
                     region_inverted = inversion_model(region_resized)
                     region_inverted_resized = F.interpolate(region_inverted, size=(int(region.shape[1]), int(region.shape[2])), mode='bilinear', align_corners=False)
                     sim_loss = mse_loss_fn(region_resized, region_inverted)
