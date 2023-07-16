@@ -1,5 +1,8 @@
 infer:
-  model_name: feature_inversion
+  device: 0
+  model_name: ResNet50UNetInverter
+  input_size: 224
+  model_path: /hdd/feature_inversion/20230712_185154_ResNet50UNetInverter/weights/epoch_000030.pth
 train:
   device: 0
   master_addr: 0.0.0.0

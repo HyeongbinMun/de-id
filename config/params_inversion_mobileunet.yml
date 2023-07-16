@@ -1,7 +1,10 @@
 infer:
-  model_name: feature_inversion
+  device: 0
+  model_name: MobileUNetInverter
+  input_size: 224
+  model_path: /hdd/feature_inversion/20230712_141741_MobileUNetInverter/weights/epoch_000030.pth
 train:
-  device: 1
+  device: 0
   master_addr: localhost
   master_port: "8001"
   batch_size: 32
