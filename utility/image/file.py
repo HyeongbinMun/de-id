@@ -45,7 +45,7 @@ def save_bbox_image_xywh(save_path, image, labels):
         bottom = int(y + height)
 
         txt_loc = (max(left + 2, 0), max(top + 2, 0))
-        txt = 'i: {:.2f}'.format(conf)
+        txt = f'{i}: {conf:.2f}'
         image = draw_boxed_text(image, txt, txt_loc, (0, 255, 0))
 
         cv2.rectangle(image, (left, top), (right, bottom), (0, 255, 0), 2)
