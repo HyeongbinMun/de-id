@@ -5,11 +5,12 @@ from tqdm import tqdm
 from PIL import Image
 
 def check_and_delete_images(dataset_dir):
-    dataset_types = os.listdir(dataset_dir)
+    root_images_folder = os.path.join(dataset_dir, 'images')
+    root_labels_folder = os.path.join(dataset_dir, 'labels')
+    dataset_types = os.listdir(root_images_folder)
     for dataset_type in dataset_types:
-        images_folder = os.path.join(dataset_dir, 'images', dataset_type)
-        labels_folder = os.path.join(dataset_dir, 'labels', dataset_type)
-
+        images_folder = os.path.join(root_images_folder, dataset_type)
+        labels_folder = os.path.join(root_labels_folder, dataset_type)
         image_files = os.listdir(images_folder)
         progress_bar = tqdm(total=len(image_files), desc="Checking images", unit="image")
         for image_file in image_files:
@@ -29,11 +30,10 @@ def check_and_delete_images(dataset_dir):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="object detection model batch inference test script")
-    parser.add_argument("--dataset_dir", type=str, default="/dataset/images_1080_0.1", help="dataset directory path")
+    parser.add_argument("--dataset_dir", type=str, default="/dataset/images_1080", help="dataset directory path")
 
     option = parser.parse_known_args()[0]
 
-    dataset_type = option.dataset_type
     dataset_dir = option.dataset_dir
 
     check_and_delete_images(dataset_dir)
