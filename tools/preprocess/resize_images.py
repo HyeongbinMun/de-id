@@ -18,9 +18,9 @@ def resize_images(source_dir, target_dir, resolution):
             try:
                 image = Image.open(source_path)
                 original_resolutions[image.size] += 1
-                # resized_image = image.resize(resolution, Image.ANTIALIAS)
-                # target_path = os.path.join(target_dir, file_name)
-                # resized_image.save(target_path)
+                resized_image = image.resize(resolution, Image.ANTIALIAS)
+                target_path = os.path.join(target_dir, file_name)
+                resized_image.save(target_path)
             except Exception as e:
                 print(f"Error occurred while processing {file_name}: {str(e)}")
     return original_resolutions
