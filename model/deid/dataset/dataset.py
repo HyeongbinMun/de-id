@@ -4,7 +4,7 @@ import PIL.Image as Image
 from torch.utils.data import Dataset
 import torchvision.transforms as transforms
 
-class DNADBDataset(Dataset):
+class FaceDetDataset(Dataset):
     def __init__(self, image_dir, label_dir, transform=None):
         self.image_dir = image_dir
         self.label_dir = label_dir
