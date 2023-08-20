@@ -1,4 +1,3 @@
-import math
 import os
 import sys
 import random
@@ -20,7 +19,7 @@ from utility import logging
 from utility.image.file import save_tensort2image
 from utility.image.color_histogram import calculate_histogram_similarity
 from utility.model.model_file import save_checkpoint, load_checkpoint
-from model.deid.feature_inversion.dataset.dataset import DNADBDataset
+from model.deid.dataset.dataset import FaceDetDataset
 from config.models import model_classes
 
 
@@ -124,24 +123,24 @@ def train(rank, params):
     valid_image_dir, valid_label_dir = os.path.join(image_dir, "valid"), os.path.join(label_dir, "valid")
     test_image_dir, test_label_dir = os.path.join(image_dir, "test"), os.path.join(label_dir, "test")
 
-    train_dataset = DNADBDataset(train_image_dir, train_label_dir)
-    valid_dataset = DNADBDataset(valid_image_dir, valid_label_dir)
-    test_dataset = DNADBDataset(test_image_dir, test_label_dir)
+    train_dataset = FaceDetDataset(train_image_dir, train_label_dir)
+    valid_dataset = FaceDetDataset(valid_image_dir, valid_label_dir)
+    test_dataset = FaceDetDataset(test_image_dir, test_label_dir)
     train_loader = DataLoader(train_dataset,
+                              batch_size=params["batch_size"],
+                              shuffle=True,
+                              num_workers=1,
+                              collate_fn=FaceDetDataset.collate_fn)
+    valid_loader = DataLoader(valid_dataset,
+                              batch_size=params["batch_size"],
+                              shuffle=True,
+                              num_workers=1,
+                              collate_fn=FaceDetDataset.collate_fn)
+    test_loader = DataLoader(test_dataset,
                              batch_size=params["batch_size"],
                              shuffle=True,
                              num_workers=1,
-                             collate_fn=DNADBDataset.collate_fn)
-    valid_loader = DataLoader(valid_dataset,
-                                   batch_size=params["batch_size"],
-                                   shuffle=True,
-                                   num_workers=1,
-                                   collate_fn=DNADBDataset.collate_fn)
-    test_loader = DataLoader(test_dataset,
-                                   batch_size=params["batch_size"],
-                                   shuffle=True,
-                                   num_workers=1,
-                                   collate_fn=DNADBDataset.collate_fn)
+                             collate_fn=FaceDetDataset.collate_fn)
 
     save_dir = params["save_dir"]
     model_dir = os.path.join(save_dir, start_timestamp + "_" + params["model"]["inverter"]["model_name"])
