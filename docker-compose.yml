@@ -34,10 +34,10 @@ services:
         volume:
           nocopy: true
     ports:
+      - "10022:22"
       - "18000:8000"
       - "18001:8001"
       - "18888:8888"
-      - "10022:22"
     stdin_open: true
     tty: true
     environment:
@@ -48,7 +48,7 @@ volumes:
     driver_opts:
       type: "nfs"
       o: "addr=mldisk.sogang.ac.kr,nolock,soft,rw"
-      device: ":/volume2/nfs_shared"
+      device: ":/volume1/nfs_shared"
   mldisk_shared_:
     driver_opts:
       type: "nfs"
