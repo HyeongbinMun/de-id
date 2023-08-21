@@ -7,27 +7,27 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from utility import logging
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="data")
-    parser.add_argument("--origin_dir", type=str, default="/hdd/dna_db/origin/dna_db_frame_face", help="train image directory")
-    parser.add_argument("--output_dir", type=str, default="/hdd/dna_db/dataset", help="train image directory")
-    parser.add_argument("--ratio", type=str, default="1,1,4", help="val,test,train")
+    parser = argparse.ArgumentParser(description="Distribute the images under the given directory according to the given fold to fit the yolo dataset directory structure.(train, test, valid)")
+    parser.add_argument("--source_dir", type=str, default="/mldisk_shared_/hbmun/vcdb/frames", help="train image directory")
+    parser.add_argument("--target_dir", type=str, default="/mldisk_shared_/hbmun/vcdb/frame_dataset", help="train image directory")
+    parser.add_argument("--fold", type=str, default="1,1,4", help="fraction of valid,test,train")
     option = parser.parse_known_args()[0]
 
-    origin_dir = option.origin_dir
-    output_dir = option.output_dir
+    source_dir = option.source_dir
+    target_dir = option.target_dir
 
-    image_paths = [os.path.join(origin_dir, image_name) for image_name in os.listdir(origin_dir)]
+    image_paths = [os.path.join(source_dir, image_name) for image_name in os.listdir(source_dir)]
 
-    dataset_types = ["val", "test", "train"]
+    dataset_types = ["valid", "test", "train"]
     dataset_ratios = [int(ratio) for ratio in str(option.ratio).split(",")]
     dataset_fold_count = sum(dataset_ratios)
     dataset_count = 0
 
-    if not os.path.exists(output_dir):
-        os.mkdir(output_dir)
+    if not os.path.exists(target_dir):
+        os.mkdir(target_dir)
 
     for i, dataset_type in enumerate(dataset_types):
-        dataset_dir = os.path.join(output_dir, dataset_type)
+        dataset_dir = os.path.join(target_dir, "images", dataset_type)
         if not os.path.exists(dataset_dir):
             os.mkdir(dataset_dir)
         if i != len(dataset_types):

@@ -29,7 +29,7 @@ def check_and_delete_images(dataset_dir):
         progress_bar.close()
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="object detection model batch inference test script")
+    parser = argparse.ArgumentParser(description="Delete any images in the folder that don't open with PIL.")
     parser.add_argument("--dataset_dir", type=str, default="/dataset/images_1080", help="dataset directory path")
 
     option = parser.parse_known_args()[0]

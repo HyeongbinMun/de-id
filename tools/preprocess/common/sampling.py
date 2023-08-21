@@ -9,9 +9,7 @@ from tqdm import tqdm
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="object detection model batch inference test script")
-    parser.add_argument("--params_path", type=str, default="/workspace/config/infer_yolov7face.yml", help="parameter file path")
-    parser.add_argument("--dataset_type", type=str, default="train", help="source image directory")
+    parser = argparse.ArgumentParser(description="Creates a subset of the original dataset by sampling the dataset at a given fraction.")
     parser.add_argument("--fraction", type=float, default=0.1, help="small dataset fraction")
     parser.add_argument("--source_dir", type=str, default="/hdd/dna_db/images_1080/", help="source dataset directory")
     parser.add_argument("--target_dir", type=str, default="/dataset/images_1080_0.1/", help="target dataset directory")
@@ -25,7 +23,7 @@ if __name__ == '__main__':
 
     fraction = option.fraction
 
-    dataset_types = ["train", "valid", "test"]
+    dataset_types = os.listdir(origin_image_dir)
 
     for dataset_type in dataset_types:
         origin_images = [os.path.join(origin_image_dir, dataset_type, f) for f in os.listdir(os.path.join(origin_image_dir, dataset_type))]

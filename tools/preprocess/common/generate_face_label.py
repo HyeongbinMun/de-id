@@ -12,9 +12,9 @@ from model.det.face.yolov7.yolov7_face import YOLOv7Face
 from utility.image.coordinates import convert_coordinates_to_yolo_format
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="object detection model batch inference test script")
-    parser.add_argument("--params_path", type=str, default="/workspace/config/infer_yolov7face.yml", help="parameter file path")
-    parser.add_argument("--dataset_dir", type=str, default="/dataset/images_1080_0.1/", help="source image directory")
+    parser = argparse.ArgumentParser(description="Detects faces in images under the given directory in the format yolo dataset and generates labels under the directory labels in the format yolo by using the yolov7face model.")
+    parser.add_argument("--params_path", type=str, default="/workspace/config/params_yolov7face.yml", help="parameter file path")
+    parser.add_argument("--dataset_dir", type=str, default="/mldisk_shared_/hbmun/vcdb/vcdb_frame_1080p/", help="source image directory")
 
     option = parser.parse_known_args()[0]
 
@@ -51,13 +51,16 @@ if __name__ == '__main__':
             else:
                 image_results = model.detect_batch(images)
 
-                for i, faces in enumerate(image_results):
+                for j, faces in enumerate(image_results):
                     if len(faces) > 0:
-                        label_path = os.path.join(label_dir, image_names[i].replace(".jpg", ".txt"))
-                        yolo_labels = convert_coordinates_to_yolo_format(images[i].shape[1], images[i].shape[0], faces)
-                        save_bbox_image_xywh(os.path.join(bbox_image_dir_xywh, image_names[i]), images[i], faces)
+                        label_path = os.path.join(label_dir, image_names[j].replace(".jpg", ".txt"))
+                        yolo_labels = convert_coordinates_to_yolo_format(images[j].shape[1], images[j].shape[0], faces)
+                        save_bbox_image_xywh(os.path.join(bbox_image_dir_xywh, image_names[j]), images[j], faces)
                         save_face_txt(label_path, yolo_labels)
                         copy_count += 1
+                    else:
+                        image_path = os.path.join(label_dir, image_names[j])
+                        shutil.rmtree(image_path)
                 progress_bar.set_description(f"Processing({dataset_type})")
                 images = []
                 image_names = []

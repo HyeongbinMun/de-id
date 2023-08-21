@@ -16,9 +16,14 @@ def remove_missing_labels(images_dir, labels_dir):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Remove images without corresponding labels")
-    parser.add_argument("--images_dir", type=str, default="/dataset/images_1080_0.1/labels/train", help="images directory")
-    parser.add_argument("--labels_dir", type=str, default="/dataset/images_1080_0.1/images/train", help="labels directory")
+    parser.add_argument("--images_dir", type=str, default="/dataset/images_1080_0.1/images", help="images directory")
+    parser.add_argument("--labels_dir", type=str, default="/dataset/images_1080_0.1/labels", help="labels directory")
 
     args = parser.parse_args()
 
-    remove_missing_labels(args.images_dir, args.labels_dir)
+    dataset_types = os.listdir(args.images_dir)
+
+    for i, dataset_type in enumerate(dataset_types):
+        images_dir = os.path.join(args.images_dir, dataset_type)
+        labels_dir = os.path.join(args.labels_dir, dataset_type)
+        remove_missing_labels(images_dir, labels_dir)

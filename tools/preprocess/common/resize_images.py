@@ -18,7 +18,7 @@ def resize_images(source_dir, target_dir, resolution):
             try:
                 image = Image.open(source_path)
                 original_resolutions[image.size] += 1
-                resized_image = image.resize(resolution, Image.ANTIALIAS)
+                resized_image = image.resize(resolution, Image.LANCZOS)
                 target_path = os.path.join(target_dir, file_name)
                 resized_image.save(target_path)
             except Exception as e:
@@ -27,10 +27,10 @@ def resize_images(source_dir, target_dir, resolution):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="object detection model batch inference test script")
-    parser.add_argument("--source_dir", type=str, default="/hdd/dna_db/origin_images/", help="source image directory")
-    parser.add_argument("--target_dir", type=str, default="/hdd/dna_db/images_1080/", help="target label directory")
-    parser.add_argument("--resolution", type=str, default="1920x1080", help="resize resolution")
+    parser = argparse.ArgumentParser(description="Resizes an image in the source image directory to the given resolution.")
+    parser.add_argument("--source_dir", type=str, default="/mldisk_shared_/hbmun/vcdb/vcdb_frame_origin/images", help="source image directory")
+    parser.add_argument("--target_dir", type=str, default="/mldisk_shared_/hbmun/vcdb/vcdb_frame_1080p/images", help="target image directory")
+    parser.add_argument("--resolution", type=str, default="1920x1080", help="resize resolution 'wxh'(e.g. 1920x1080)")
 
     args = parser.parse_args()
 
@@ -38,7 +38,7 @@ if __name__ == '__main__':
     resolution = (width, height)
 
     original_resolutions = []
-    dataset_types = ["train", "test", "valid"]
+    dataset_types = os.listdir(args.source_dir)
 
     for dataset_type in dataset_types:
         original_resolutions.append(resize_images(os.path.join(args.source_dir, dataset_type), os.path.join(args.target_dir, dataset_type), resolution))
