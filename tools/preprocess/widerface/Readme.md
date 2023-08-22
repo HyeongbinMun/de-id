@@ -47,15 +47,8 @@
 ```shell
 ./dataset
 └── images
-    ├── valid/
-    │    ├── 0_Parade_marchingband_1_9.jpg
-    │    ├── 0_Parade_marchingband_1_11.jpg
-    │    ├── ...
-    │    └── 0_Parade_Parade_0_1047.jpg
-    ├── test/
-    │    ├── ....
-    │    └── ....
-    └── train/
-         ├── ....
-         └── ....
+   ├── 0_Parade_marchingband_1_9.jpg
+   ├── 0_Parade_marchingband_1_11.jpg
+   └── ....
+ 
 ```

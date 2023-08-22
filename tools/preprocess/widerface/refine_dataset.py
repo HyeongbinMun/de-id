@@ -20,10 +20,6 @@ if __name__ == '__main__':
     if not os.path.exists(target_dir):
         os.makedirs(target_dir)
 
-    images_dir = os.path.join(target_dir, "images")
-    if not os.path.exists(images_dir):
-        os.makedirs(images_dir)
-
     dataset_types = os.listdir(source_dir)
 
     resolutions = []
@@ -44,7 +40,7 @@ if __name__ == '__main__':
                 source_image_names = os.listdir(os.path.join(sub_dir, source_image_class))
                 for source_image_name in source_image_names:
                     source_image_path = os.path.join(sub_dir, source_image_class, source_image_name)
-                    target_image_path = os.path.join(target_image_dir, source_image_name)
+                    target_image_path = os.path.join(target_dir, source_image_name)
 
                     with Image.open(source_image_path) as img:
                         resolutions.append(img.size)
