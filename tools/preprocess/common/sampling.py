@@ -6,7 +6,7 @@ import shutil
 import argparse
 from tqdm import tqdm
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Creates a subset of the original dataset by sampling the dataset at a given fraction.")

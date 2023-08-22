@@ -5,7 +5,7 @@ import shutil
 import argparse
 from tqdm import tqdm
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 from utility.params import load_params_yml
 from utility.image.file import save_face_txt, save_bbox_image_xywh, save_bbox_image_yolo
 from model.det.face.yolov7.yolov7_face import YOLOv7Face
@@ -44,7 +44,9 @@ if __name__ == '__main__':
         progress_bar = tqdm(enumerate(image_paths), total=len(image_paths))
         for i, image_path in progress_bar:
             if len(images) < params["batch_size"]:
-                images.append(cv2.imread(image_path))
+                image_size = params["image_size"]
+                resized_image = cv2.resize(cv2.imread(image_path), (image_size, image_size))
+                images.append(resized_image)
                 image_name = image_path.split("/")[-1]
                 image_names.append(image_name)
                 src_image_paths.append(image_path)
@@ -59,8 +61,8 @@ if __name__ == '__main__':
                         save_face_txt(label_path, yolo_labels)
                         copy_count += 1
                     else:
-                        image_path = os.path.join(label_dir, image_names[j])
-                        shutil.rmtree(image_path)
+                        image_path = os.path.join(image_dir, image_names[j])
+                        os.remove(image_path)
                 progress_bar.set_description(f"Processing({dataset_type})")
                 images = []
                 image_names = []
