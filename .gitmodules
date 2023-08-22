@@ -7,3 +7,6 @@
 [submodule "model/det/face/yolov7"]
 	path = model/det/face/yolov7
 	url = https://github.com/jinhasong/yolov7-face
+[submodule "model/deepfake/faceswap"]
+	path = model/deepfake/faceswap
+	url = https://github.com/JinhaSong/faceswap.git
