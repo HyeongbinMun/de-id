@@ -19,17 +19,17 @@ if __name__ == '__main__':
     image_paths = [os.path.join(source_dir, image_name) for image_name in os.listdir(source_dir)]
 
     dataset_types = ["valid", "test", "train"]
-    dataset_ratios = [int(ratio) for ratio in str(option.ratio).split(",")]
+    dataset_ratios = [int(ratio) for ratio in str(option.fold).split(",")]
     dataset_fold_count = sum(dataset_ratios)
     dataset_count = 0
 
     if not os.path.exists(target_dir):
-        os.mkdir(target_dir)
+        os.makedirs(target_dir)
 
     for i, dataset_type in enumerate(dataset_types):
         dataset_dir = os.path.join(target_dir, "images", dataset_type)
         if not os.path.exists(dataset_dir):
-            os.mkdir(dataset_dir)
+            os.makedirs(dataset_dir)
         if i != len(dataset_types):
             dataset_ratio = dataset_ratios[i]
             image_count = int(dataset_ratio/dataset_fold_count * len(image_paths))
