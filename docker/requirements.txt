@@ -29,6 +29,3 @@ pycocotools>=2.0  # COCO mAP
 
 # eval ----------------------------------------
 scikit-image==0.18.3
-
-# tensorflow for deepfake(faceswap)
-tensorflow>=2.10.0,<2.11.0
