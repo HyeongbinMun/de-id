@@ -33,6 +33,17 @@ def check_and_delete_images(dataset_dir):
                         os.remove(label_path)
                         os.remove(os.path.join(images_folder, image_file))
                         progress_bar.write(f"Deleted: {image_file}, {label_name}")
+                    elif len(labels) > 0:
+                        flag = False
+                        for label in labels:
+                            if len(label.split(" ")) != 5:
+                                print()
+                                flag = True
+                        if flag == True:
+                            print([len(label.split(" ")) for label in labels])
+                            os.remove(label_path)
+                            os.remove(os.path.join(images_folder, image_file))
+                            progress_bar.write(f"Deleted: {image_file}, {label_name}")
                     label_file.close()
 
                 progress_bar.update(1)
