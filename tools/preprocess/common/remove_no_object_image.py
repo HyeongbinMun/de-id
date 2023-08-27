@@ -1,13 +1,14 @@
 import os
+from tqdm import tqdm
 import argparse
 
 def remove_missing_labels(images_dir, labels_dir):
-    images_files = os.listdir(images_dir)
-    labels_files = os.listdir(labels_dir)
+    images_files = sorted(os.listdir(images_dir))
+    labels_files = sorted(os.listdir(labels_dir))
 
     labels_images = set([file.split(".")[0] for file in labels_files])
 
-    for image_file in images_files:
+    for image_file in tqdm(images_files, desc="Resizing images"):
         image_name = image_file.split(".")[0]
         if image_name not in labels_images:
             image_path = os.path.join(images_dir, image_file)

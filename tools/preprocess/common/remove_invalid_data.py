@@ -20,13 +20,30 @@ def check_and_delete_images(dataset_dir):
                     Image.open(image_path).convert('RGB')
                 except (OSError, PIL.UnidentifiedImageError):
                     os.remove(image_path)
-                    label_file = os.path.splitext(image_file)[0] + '.txt'
-                    label_path = os.path.join(labels_folder, label_file)
+                    label_name = os.path.splitext(image_file)[0] + '.txt'
+                    label_path = os.path.join(labels_folder, label_name)
                     if os.path.exists(label_path):
                         os.remove(label_path)
                     progress_bar.write(f"Deleted: {image_file}")
+                label_name = os.path.splitext(image_file)[0] + '.txt'
+                label_path = os.path.join(labels_folder, label_name)
+                with open(label_path, "r") as label_file:
+                    labels = label_file.readlines()
+                    if len(labels) == 0:
+                        os.remove(label_path)
+                        os.remove(os.path.join(images_folder, image_file))
+                        progress_bar.write(f"Deleted: {image_file}, {label_name}")
+                    label_file.close()
+
                 progress_bar.update(1)
         progress_bar.close()
+
+    for dataset_type in dataset_types:
+        images_folder = os.path.join(root_images_folder, dataset_type)
+        labels_folder = os.path.join(root_labels_folder, dataset_type)
+        image_files = os.listdir(images_folder)
+        label_files = os.listdir(labels_folder)
+        print(f"{dataset_type}: {len(image_files)}/{len(label_files)}")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Delete any images in the folder that don't open with PIL.")
