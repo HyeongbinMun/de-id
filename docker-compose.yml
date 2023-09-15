@@ -5,12 +5,12 @@ services:
     container_name: de-id_model
     build:
       context: ./
-      dockerfile: docker/model/dockerfile
+      dockerfile: docker/dockerfile_model
     runtime: nvidia
     restart: always
     ipc: "host"
     env_file:
-      - "docker/model/dockerenv.env"
+      - "docker/dockerenv.env"
     volumes:
       - /media/mmlab/hdd:/hdd
       - type: volume
@@ -48,15 +48,15 @@ services:
     environment:
       TZ: Asia/Seoul
   disc:
-    container_name: de-id_model
+    container_name: de-id_disc
     build:
       context: ./
-      dockerfile: docker/model/dockerfile
+      dockerfile: docker/dockerfile_disc
     runtime: nvidia
     restart: always
     ipc: "host"
     env_file:
-      - "docker/model/dockerenv.env"
+      - "docker/dockerenv.env"
     volumes:
       - /media/mmlab/hdd:/hdd
       - type: volume
