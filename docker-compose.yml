@@ -1,18 +1,23 @@
 version: '2.3'
 
 services:
-  main:
-    container_name: de-id_main
+  model:
+    container_name: de-id_model
     build:
       context: ./
-      dockerfile: docker/dockerfile
+      dockerfile: docker/model/dockerfile
     runtime: nvidia
     restart: always
     ipc: "host"
     env_file:
-      - "docker/dockerenv.env"
+      - "docker/model/dockerenv.env"
     volumes:
       - /media/mmlab/hdd:/hdd
+      - type: volume
+        source: dataset
+        target: /dataset
+        volume:
+          nocopy: true
       - type: volume
         source: mldisk_shared
         target: /mldisk_shared
@@ -42,8 +47,60 @@ services:
     tty: true
     environment:
       TZ: Asia/Seoul
+  disc:
+    container_name: de-id_model
+    build:
+      context: ./
+      dockerfile: docker/model/dockerfile
+    runtime: nvidia
+    restart: always
+    ipc: "host"
+    env_file:
+      - "docker/model/dockerenv.env"
+    volumes:
+      - /media/mmlab/hdd:/hdd
+      - type: volume
+        source: dataset
+        target: /dataset
+        volume:
+          nocopy: true
+      - type: volume
+        source: mldisk_shared
+        target: /mldisk_shared
+        volume:
+          nocopy: true
+      - type: volume
+        source: mldisk_shared_
+        target: /mldisk_shared_
+        volume:
+          nocopy: true
+      - type: volume
+        source: mldisk2
+        target: /mldisk2
+        volume:
+          nocopy: true
+      - type: volume
+        source: mlsun
+        target: /mlsun
+        volume:
+          nocopy: true
+    ports:
+      - "20022:22"
+      - "28000:8000"
+      - "28001:8001"
+      - "28888:8888"
+    stdin_open: true
+    tty: true
+    environment:
+      TZ: Asia/Seoul
 
 volumes:
+  dataset:
+    driver: local
+    driver_opts:
+      type: none
+      device: "/home/mmlab/dataset/deid"
+      o: bind
   mldisk_shared:
     driver_opts:
       type: "nfs"
