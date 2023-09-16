@@ -10,6 +10,6 @@
 [submodule "model/deepfake/simswap"]
 	path = model/deepfake/simswap
 	url = https://github.com/JinhaSong/SimSwap
-[submodule "tools/eval/sscd"]
-	path = tools/eval/sscd
+[submodule "model/icd/sscd"]
+	path = model/icd/sscd
 	url = https://github.com/jinhasong/sscd-copy-detection
