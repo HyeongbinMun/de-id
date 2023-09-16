@@ -3,20 +3,21 @@ import sys
 import shutil
 import argparse
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from utility.image.dataset import summary_video_dir, summary_image_dir, summary_yolo_dataset
-
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+from utility.image.dataset import *
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="")
-    parser.add_argument("--orin_video_dir", type=str, default="/hdd/dna_db/DNA_DB/", help="parameter file path")
-    parser.add_argument("--orin_image_dir", type=str, default="/hdd/dna_db/dna_db_frame_origin/", help="parameter file path")
-    parser.add_argument("--dataset_dir", type=str, default="/dataset/dna_db/", help="source image directory")
+    parser.add_argument("--orin_video_dir", type=str, default="/mldisk_shared/deid/ETRI/videos", help="parameter file path")
+    parser.add_argument("--orin_image_dir", type=str, default="/hdd/dna_db/image_origin/", help="parameter file path")
+    parser.add_argument("--refine_image_dir", type=str, default="/dataset/dnadb/", help="source image directory")
+    parser.add_argument("--face_ratio_dir", type=str, default="/mldisk_shared/deid/ETRI/eval_deid",help="parameter file path")
     option = parser.parse_known_args()[0]
 
     orin_video_dir = option.orin_video_dir
     orin_image_dir = option.orin_image_dir
-    dataset_dir = option.dataset_dir
+    refine_image_dir = option.refine_image_dir
+    face_ratio_dir = option.face_ratio_dir
     terminal_size = shutil.get_terminal_size().columns
 
     video_list, resolution_dict = summary_video_dir(orin_video_dir)
@@ -42,13 +43,16 @@ if __name__ == '__main__':
     print(f"avg video length: {avg_length:.2f} sec")
 
     print("-" * terminal_size)
-    print("DNA DB Face Dataset")
+    print("VCD Face Dataset")
     print("-" * terminal_size)
-    summary = summary_yolo_dataset(dataset_dir)
+    summary = summary_yolo_dataset(refine_image_dir)
     print(f"total # of data        : {len(summary['total_images'])}")
     print(f"total # of bbox        : {summary['total_boxes']}")
     print(f"avg # of bbox in images: {summary['avg_boxes_per_image']:.2f}")
     print(f"max ratio of the whole image occupied by the bounding box: {summary['box_area_ratios']['max']['ratio'] * 100:.2f}% - {summary['box_area_ratios']['max']['image']}")
     print(f"min ratio of the whole image occupied by the bounding box: {summary['box_area_ratios']['min']['ratio'] * 100:.2f}% - {summary['box_area_ratios']['min']['image']}")
     print(f"avg ratio of the whole image occupied by the bounding box: {summary['box_area_ratios']['average'] * 100:.2f}%")
+
     print("-" * terminal_size)
+    summery_face_ratio(refine_image_dir, face_ratio_dir)
+    print_face_ratio(face_ratio_dir)
