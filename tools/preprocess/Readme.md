@@ -82,19 +82,19 @@ python3 tools/preprocess/common/generate_face_label.py --params_path=/workspace/
 │        ├── 0401.jpg
 │        ├── ....
 │        └── 1200.jpg
-├── labels
-│   ├── valid/
-│   │    ├── 0001.txt
-│   │    ├── ....
-│   │    └── 0200.txt
-│   ├── test/
-│   │    ├── 0201.txt
-│   │    ├── ....
-│   │    └── 0400.txt
-│   └── train/
-│        ├── 0401.txt
-│        ├── ....
-│        └── 1200.txt
+└── labels
+    ├── valid/
+    │    ├── 0001.txt
+    │    ├── ....
+    │    └── 0200.txt
+    ├── test/
+    │    ├── 0201.txt
+    │    ├── ....
+    │    └── 0400.txt
+    └── train/
+         ├── 0401.txt
+         ├── ....
+         └── 1200.txt
 ```
 ### 5. sampling.py(Optional.)
 ```shell
