@@ -25,18 +25,14 @@ def save_tensort2image(image, path):
         path (str): The path where the image will be saved.
 
     """
-    # Check if the image tensor is on the GPU and if so send it back to the CPU
     image = image.cpu()
-
-    # Unnormalize the image
     image = (image * 0.5) + 0.5
 
-    # Add a dimension to the image tensor and save it
     vutils.save_image(image.unsqueeze(0), path)
 
 
 def save_bbox_image_xywh(save_path, image, labels):
-    for label in labels:
+    for i, label in enumerate(labels):
         _, cls, conf, x, y, width, height = label
 
         left = int(x)
@@ -45,7 +41,7 @@ def save_bbox_image_xywh(save_path, image, labels):
         bottom = int(y + height)
 
         txt_loc = (max(left + 2, 0), max(top + 2, 0))
-        txt = '{:.2f}'.format(conf)
+        txt = f'{i}: {conf:.2f}'
         image = draw_boxed_text(image, txt, txt_loc, (0, 255, 0))
 
         cv2.rectangle(image, (left, top), (right, bottom), (0, 255, 0), 2)

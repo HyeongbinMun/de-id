@@ -7,3 +7,9 @@
 [submodule "model/det/face/yolov7"]
 	path = model/det/face/yolov7
 	url = https://github.com/jinhasong/yolov7-face
+[submodule "model/deepfake/simswap"]
+	path = model/deepfake/simswap
+	url = https://github.com/JinhaSong/SimSwap
+[submodule "model/icd/sscd"]
+	path = model/icd/sscd
+	url = https://github.com/jinhasong/sscd-copy-detection

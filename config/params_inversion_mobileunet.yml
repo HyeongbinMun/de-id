@@ -1,0 +1,32 @@
+infer:
+  device: 0
+  model_name: MobileUNetInverter
+  input_size: 224
+  model_path: /hdd/feature_inversion/20230712_141741_MobileUNetInverter/weights/epoch_000030.pth
+train:
+  device: 0
+  master_addr: localhost
+  master_port: "8001"
+  batch_size: 32
+  learning_rate: 0.0001
+  epoch: 100
+  dataset_dir: /dataset/images_1080/
+  save_dir: /hdd/feature_inversion/
+  valid_epoch: 5
+  model:
+    feature:
+      model_name: MobileNet_AVG
+      feature_weight_path: /workspace/model/weights/mobilenet_avg_ep16_ckpt.pth
+      input_size: 224
+    inverter:
+      model_name: MobileUNetInverter
+      input_size: 224
+      resume: true
+      pretrained_model_path: /hdd/feature_inversion/20230712_141741_MobileUNetInverter/weights/epoch_000030.pth
+  lambda:
+    feature_mse: 1
+    feature_cosine: 0
+    region_mse: 1
+  wandb:
+    project_name: FeatureInversion
+    account: jinhasong
