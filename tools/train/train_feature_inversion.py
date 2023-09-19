@@ -68,7 +68,6 @@ def validate(valid_loader, feature_model, inversion_model, loss_fns, device, par
         for batch_idx, (image_path, label_path, images, boxes_list) in progress_bar:
             images = images.clone().to(device)
             inverted_images, region_loss = invert_regions(images, boxes_list, inversion_model, mse_loss_fn, params)
-            inverted_images = images.clone()
 
             image_size = params["model"]["feature"]["input_size"]
             resized_origin_images = F.interpolate(images.clone(), size=(image_size, image_size))
@@ -88,12 +87,10 @@ def validate(valid_loader, feature_model, inversion_model, loss_fns, device, par
             lregion_mse_loss = lrs * region_loss
             loss = lfeature_mse_loss + lfeature_cos_loss + lregion_mse_loss
 
-            selected_indices = random.sample(range(len(inverted_images)), 5)
-            for i in selected_indices:
-                inverted_images_batch_dir = os.path.join(inverted_images_dir, f'batch_{batch_idx}')
-                if not os.path.exists(inverted_images_batch_dir):
-                    os.makedirs(inverted_images_batch_dir)
-                save_tensort2image(inverted_images[i], os.path.join(inverted_images_dir, inverted_images_dir, f'image_{i}.png'))
+            if not os.path.exists(inverted_images_dir):
+                os.makedirs(inverted_images_dir)
+            for i, inverted_image in enumerate(inverted_images):
+                save_tensort2image(inverted_image, os.path.join(inverted_images_dir, f'{image_path[i].split("/")[-1]}'))
 
             valid_loss += loss.item()
             progress_bar.set_description(f"Validating, Loss: {loss.item()}")
@@ -111,10 +108,11 @@ def train(rank, params):
         tmp_start_time_stamp = params["model"]["inverter"]["pretrained_model_path"].split("/")[-3].split("_")
         start_timestamp = f"{tmp_start_time_stamp[0]}_{tmp_start_time_stamp[1]}"
         wandb_run_name = f"{start_timestamp}-{params['model']['inverter']['model_name']}"
+        wandb.init(project=params['wandb']['project_name'], entity=params['wandb']['account'], name=wandb_run_name, resume=True, id=wandb_run_name)
     else:
         start_timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         wandb_run_name = f"{start_timestamp}-{params['model']['inverter']['model_name']}"
-    wandb.init(project=params['wandb']['project_name'], entity=params['wandb']['account'], name=wandb_run_name)
+        wandb.init(project=params['wandb']['project_name'], entity=params['wandb']['account'], name=wandb_run_name)
 
     image_dir = os.path.join(params["dataset_dir"], "images")
     label_dir = os.path.join(params["dataset_dir"], "labels")
@@ -159,7 +157,7 @@ def train(rank, params):
     print(logging.s(f"    Device       : {params['device']}"))
     print(logging.s(f"    Batch size   : {params['batch_size']}"))
     print(logging.s(f"    Max epoch    : {params['epoch']}"))
-    print(logging.s(f"    Learning rate: {params['epoch']}"))
+    print(logging.s(f"    Learning rate: {params['learning_rate']}"))
     print(logging.s(f"    Valid epoch: {params['valid_epoch']}"))
     print(logging.s(f"    Model:"))
     print(logging.s(f"    - Feature extractor: {params['model']['feature']['model_name']}"))
@@ -178,10 +176,14 @@ def train(rank, params):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     torch.cuda.set_device(rank)
 
-    feature_model = model_classes["feature"][params["model"]["feature"]["model_name"]]().to(device)
-    state_dict = torch.load(params["model"]["feature"]["feature_weight_path"], map_location=device)
-    state_dict = {k.replace("base.", ""): v for k, v in state_dict.items()}
-    feature_model.load_state_dict(state_dict, strict=False)
+    if params["model"]["feature"]["model_name"] == "ResNet50":
+        feature_model = model_classes["feature"][params["model"]["feature"]["model_name"]](backbone="TV_RESNET50", dims=512, pool_param=3).to(device)
+        feature_model.load_state_dict(torch.load(params["model"]["feature"]["feature_weight_path"]))
+    else:
+        feature_model = model_classes["feature"][params["model"]["feature"]["model_name"]]().to(device)
+        state_dict = torch.load(params["model"]["feature"]["feature_weight_path"], map_location=device)
+        state_dict = {k.replace("base.", ""): v for k, v in state_dict.items()}
+        feature_model.load_state_dict(state_dict, strict=False)
     feature_model.eval()
 
     inversion_model = model_classes["deid"][params["model"]["inverter"]["model_name"]]().to(device)
@@ -269,7 +271,7 @@ def train(rank, params):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="")
-    parser.add_argument("--params_path", type=str, default="config/params_inversion_resnet50.yml", help="dataset directory path")
+    parser.add_argument("--params_path", type=str, default="config/params_inversion_resnet50.yml", help="model parameters file path")
 
     option = parser.parse_known_args()[0]
     params = load_params_yml(option.params_path)["train"]
