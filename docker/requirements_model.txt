@@ -29,3 +29,6 @@ pycocotools>=2.0  # COCO mAP
 
 # eval ----------------------------------------
 scikit-image==0.18.3
+
+# sscd
+class_vision
