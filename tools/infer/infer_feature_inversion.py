@@ -16,7 +16,7 @@ from model.deid.feature_inversion.feature_inversion import FeatureInversion
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="object detection model batch inference test script")
     parser.add_argument("--face_params_path", type=str, default="/workspace/config/params_yolov5face.yml", help="parameter file path")
-    parser.add_argument("--inverter_params_path", type=str, default="/workspace/config/params_inversion_mobileunet.yml", help="parameter file path")
+    parser.add_argument("--inverter_params_path", type=str, default="/workspace/config/params_inversion_resnet50_icd.yml", help="parameter file path")
     parser.add_argument("--image_dir", type=str, default="/workspace/data/image/", help="image path")
     parser.add_argument("--output_dir", type=str, default="/workspace/output/", help="image path")
     option = parser.parse_known_args()[0]
