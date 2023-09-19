@@ -31,4 +31,4 @@ pycocotools>=2.0  # COCO mAP
 scikit-image==0.18.3
 
 # sscd
-class_vision
+classy_vision
