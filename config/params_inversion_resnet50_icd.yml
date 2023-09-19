@@ -1,8 +1,8 @@
 infer:
-  device: 0
+  device: 1
   model_name: ResNet50UNetInverter
   input_size: 224
-  model_path: /hdd/feature_inversion/20230712_185154_ResNet50UNetInverter/weights/epoch_000030.pth
+  model_path: /hdd/feature_inversion/20230712_185154_ResNet50UNetInverter/weights/epoch_000015.pth
 train:
   device: 1
   master_addr: 0.0.0.0
@@ -22,7 +22,7 @@ train:
       model_name: ResNet50UNetInverter
       input_size: 224
       resume: true
-      pretrained_model_path: /hdd/feature_inversion/20230917_160515_ResNet50UNetInverter/weights/epoch_000007.pth
+      pretrained_model_path: /hdd/feature_inversion/20230917_160515_ResNet50UNetInverter/weights/epoch_000015.pth
   lambda:
     feature_mse: 1
     feature_cosine: 1
