@@ -194,7 +194,7 @@ def train(rank, params):
         start_epoch = 0
         best_loss = float('inf')
     num_epochs = params["epoch"]
-    # wandb.watch(inversion_model)
+    wandb.watch(inversion_model)
 
     l1_loss_fn = nn.L1Loss()
     mse_loss_fn = nn.MSELoss()
