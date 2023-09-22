@@ -370,55 +370,57 @@ def train(rank, params):
             epoch_loss_discriminator_orin /= len(train_loader)
             epoch_loss_discriminator_deid /= len(train_loader)
 
-            save_checkpoint(epoch, generator_orin2deid, optimizer_generator_orin2deid, epoch_loss_generator_orin2deid, os.path.join(model_save_dir, f"epoch_generator_orin2deid_{epoch + 1:06d}.pth"))
-            save_checkpoint(epoch, generator_deid2orin, optimizer_generator_deid2orin, epoch_loss_generator_deid2orin, os.path.join(model_save_dir, f"epoch_generator_deid2orin_{epoch + 1:06d}.pth"))
-            save_checkpoint(epoch, discriminator_orin, optimizer_discriminator_orin, epoch_loss_discriminator_orin, os.path.join(model_save_dir, f"epoch_discriminator_orin_{epoch + 1:06d}.pth"))
-            save_checkpoint(epoch, discriminator_deid, optimizer_discriminator_deid, epoch_loss_discriminator_deid, os.path.join(model_save_dir, f"epoch_discriminator_deid_{epoch + 1:06d}.pth"))
-
-            if epoch_loss_generator < best_loss_generator:
-                best_loss_generator = epoch_loss_generator
-                save_checkpoint(epoch, generator_orin2deid, optimizer_generator_orin2deid, epoch_loss_generator_orin2deid, os.path.join(model_save_dir, f"epoch_generator_orin2deid_best_{epoch + 1:06d}.pth"))
-                save_checkpoint(epoch, generator_deid2orin, optimizer_generator_deid2orin, epoch_loss_generator_deid2orin, os.path.join(model_save_dir, f"epoch_generator_deid2orin_best_{epoch + 1:06d}.pth"))
-
-            if epoch_loss_discriminator_orin < best_loss_discriminator_orin:
-                best_loss_discriminator_orin = epoch_loss_discriminator_orin
-                save_checkpoint(epoch, discriminator_orin, optimizer_discriminator_orin, epoch_loss_discriminator_orin, os.path.join(model_save_dir, f"epoch_discriminator_orin_best_{epoch + 1:06d}.pth"))
-
-            if epoch_loss_discriminator_deid < best_loss_discriminator_deid:
-                best_loss_discriminator_deid = epoch_loss_discriminator_deid
-                save_checkpoint(epoch, discriminator_deid, optimizer_discriminator_deid, epoch_loss_discriminator_deid, os.path.join(model_save_dir, f"epoch_discriminator_deid_best_{epoch + 1:06d}.pth"))
-
-            if (epoch + 1) % valid_epoch == 0:
-                epoch_inverted_images_dir = os.path.join(generated_images_dir, f"epoch-{epoch + 1}")
-                if not os.path.exists(epoch_inverted_images_dir):
-                    os.makedirs(epoch_inverted_images_dir)
-                valid_loss_generator, valid_loss_feature, valid_loss_discriminator_orin, valid_loss_discriminator_deid = validate(
-                    valid_loader,
-                    generator_orin2deid,
-                    generator_deid2orin,
-                    discriminator_orin,
-                    discriminator_deid,
-                    feature_model,
-                    criterion_gan_loss,
-                    criterion_cycle_loss,
-                    criterion_identity_loss,
-                    criterion_full_image_feature_loss,
-                    device,
-                    params,
-                    epoch_inverted_images_dir
-                )
-                print(f"Generator validation Loss at epoch {epoch + 1}: {valid_loss_generator}")
-                print(f"Feature validation Loss at epoch {epoch + 1}: {valid_loss_feature}")
-                print(f"Discriminator Origin validation Loss at epoch {epoch + 1}: {valid_loss_discriminator_orin}")
-                print(f"Discriminator De-id  validation Loss at epoch {epoch + 1}: {valid_loss_discriminator_deid}")
-                wandb.log({"Train Generator Loss": epoch_loss_generator, "Epoch": epoch})
-                wandb.log({"Train Discriminator Orin Loss": epoch_loss_discriminator_orin, "Epoch": epoch})
-                wandb.log({"Train Discriminator Deid Loss": epoch_loss_discriminator_deid, "Epoch": epoch})
-
         lr_scheduler_generator_orin2deid.step()
         lr_scheduler_generator_deid2orin.step()
         lr_scheduler_discriminator_orin.step()
         lr_scheduler_discriminator_deid.step()
+
+        save_checkpoint(epoch, generator_orin2deid, optimizer_generator_orin2deid, epoch_loss_generator_orin2deid, os.path.join(model_save_dir, f"epoch_generator_orin2deid_{epoch + 1:06d}.pth"))
+        save_checkpoint(epoch, generator_deid2orin, optimizer_generator_deid2orin, epoch_loss_generator_deid2orin, os.path.join(model_save_dir, f"epoch_generator_deid2orin_{epoch + 1:06d}.pth"))
+        save_checkpoint(epoch, discriminator_orin, optimizer_discriminator_orin, epoch_loss_discriminator_orin, os.path.join(model_save_dir, f"epoch_discriminator_orin_{epoch + 1:06d}.pth"))
+        save_checkpoint(epoch, discriminator_deid, optimizer_discriminator_deid, epoch_loss_discriminator_deid, os.path.join(model_save_dir, f"epoch_discriminator_deid_{epoch + 1:06d}.pth"))
+
+        if epoch_loss_generator < best_loss_generator:
+            best_loss_generator = epoch_loss_generator
+            save_checkpoint(epoch, generator_orin2deid, optimizer_generator_orin2deid, epoch_loss_generator_orin2deid, os.path.join(model_save_dir, f"epoch_generator_orin2deid_best_{epoch + 1:06d}.pth"))
+            save_checkpoint(epoch, generator_deid2orin, optimizer_generator_deid2orin, epoch_loss_generator_deid2orin, os.path.join(model_save_dir, f"epoch_generator_deid2orin_best_{epoch + 1:06d}.pth"))
+
+        if epoch_loss_discriminator_orin < best_loss_discriminator_orin:
+            best_loss_discriminator_orin = epoch_loss_discriminator_orin
+            save_checkpoint(epoch, discriminator_orin, optimizer_discriminator_orin, epoch_loss_discriminator_orin, os.path.join(model_save_dir, f"epoch_discriminator_orin_best_{epoch + 1:06d}.pth"))
+
+        if epoch_loss_discriminator_deid < best_loss_discriminator_deid:
+            best_loss_discriminator_deid = epoch_loss_discriminator_deid
+            save_checkpoint(epoch, discriminator_deid, optimizer_discriminator_deid, epoch_loss_discriminator_deid, os.path.join(model_save_dir, f"epoch_discriminator_deid_best_{epoch + 1:06d}.pth"))
+
+        if (epoch + 1) % valid_epoch == 0:
+            epoch_inverted_images_dir = os.path.join(generated_images_dir, f"epoch-{epoch + 1}")
+            if not os.path.exists(epoch_inverted_images_dir):
+                os.makedirs(epoch_inverted_images_dir)
+            valid_loss_generator, valid_loss_feature, valid_loss_discriminator_orin, valid_loss_discriminator_deid = validate(
+                valid_loader,
+                generator_orin2deid,
+                generator_deid2orin,
+                discriminator_orin,
+                discriminator_deid,
+                feature_model,
+                criterion_gan_loss,
+                criterion_cycle_loss,
+                criterion_identity_loss,
+                criterion_full_image_feature_loss,
+                device,
+                params,
+                epoch_inverted_images_dir
+            )
+            print(f"Generator validation Loss at epoch {epoch + 1}: {valid_loss_generator}")
+            print(f"Feature validation Loss at epoch {epoch + 1}: {valid_loss_feature}")
+            print(f"Discriminator Origin validation Loss at epoch {epoch + 1}: {valid_loss_discriminator_orin}")
+            print(f"Discriminator De-id  validation Loss at epoch {epoch + 1}: {valid_loss_discriminator_deid}")
+            wandb.log({"Train Generator Loss": epoch_loss_generator, "Epoch": epoch})
+            wandb.log({"Train Discriminator Orin Loss": epoch_loss_discriminator_orin, "Epoch": epoch})
+            wandb.log({"Train Discriminator Deid Loss": epoch_loss_discriminator_deid, "Epoch": epoch})
+
+
 
 
 def validate(
