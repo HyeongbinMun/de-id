@@ -1,0 +1,34 @@
+infer:
+  model_name: cyclegan
+train:
+  device: 0
+  master_addr: localhost
+  master_port: "8001"
+  batch_size: 5
+  epoch: 200
+  valid_epoch: 5
+  learning_rate: 0.0002
+  b1: 0.5
+  b2: 0.999
+  decay_epoch: 100
+  image_size: 256
+  channels: 3
+  residual_block_number: 9
+  dataset_dir: /dataset/cyclegan
+  save_dir: /dataset/cyclegan_model/
+  model:
+    feature:
+      model_name: ResNet50
+      feature_weight_path: /workspace/model/weights/sscd_disc_mixup.torchvision.pt
+      input_size: 224
+    cyclegan:
+      model_name: ResNetCycleGAN
+      resume: false
+      pretrained_model_dir: ""
+  lambda:
+    lambda_cycle: 10.0
+    lambda_identity: 5.0
+    lambda_full_image: 0.7
+  wandb:
+    project_name: CycleGAN
+    account: jinhasong

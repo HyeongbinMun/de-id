@@ -5,4 +5,4 @@ infer:
   image_size: 1280
   conf_thresh: 0.7
   iou_thresh: 0.5
-  batch_size: 60
+  batch_size: 32

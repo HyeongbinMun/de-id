@@ -17,6 +17,7 @@ class FeatureInversion:
         self.inversion_model = model_classes["deid"][params["model_name"]]().to(self.device)
         self.inversion_model.load_state_dict(checkpoint['model_state_dict'])
         self.transform = transforms.Compose([transforms.ToTensor()])
+        self.input_size = params['input_size']
 
     def inference(self, image, boxes):
         tensor_image = self.transform(image)
@@ -33,7 +34,7 @@ class FeatureInversion:
             y2 = int((y_center + h / 2) * image_h)
             if (x2 - x1) != 0 and (y2 - y1) != 0:
                 region = tensor_image[:, y1:y2, x1:x2].clone()
-                region_resized = F.interpolate(region.unsqueeze(0), size=(224, 224), mode='bilinear', align_corners=False)
+                region_resized = F.interpolate(region.unsqueeze(0), size=(self.input_size, self.input_size), mode='bilinear', align_corners=False)
                 region_inverted = self.inversion_model(region_resized)
                 region_inverted_resized = F.interpolate(region_inverted, size=(int(region.shape[1]), int(region.shape[2])), mode='bilinear', align_corners=False)
                 inverted_image[:, y1:y2, x1:x2] = region_inverted_resized.squeeze(0)
