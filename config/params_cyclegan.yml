@@ -4,7 +4,7 @@ train:
   device: 0
   master_addr: localhost
   master_port: "8001"
-  batch_size: 5
+  batch_size: 4
   epoch: 200
   valid_epoch: 5
   learning_rate: 0.0002

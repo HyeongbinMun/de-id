@@ -238,7 +238,7 @@ def train(rank, params):
     print(logging.s(f"    Valid epoch: {valid_epoch}"))
     print(logging.s(f"    Model:"))
     print(logging.s(f"    - Feature extractor: {params['model']['feature']['model_name']}"))
-    print(logging.s(f"    - Feature inverter : {params['model']['cyclegan']['model_name']}"))
+    print(logging.s(f"    - CycleGAN         : {params['model']['cyclegan']['model_name']}"))
     print(logging.s(f"       b1                   : {b1}"))
     print(logging.s(f"       b2                   : {b2}"))
     print(logging.s(f"       input size           : {image_size}"))
@@ -261,6 +261,7 @@ def train(rank, params):
 
     for epoch in range(start_epoch, end_epoch):
         epoch_loss_generator = 0.0
+        epoch_loss_feature = 0.0
         epoch_loss_generator_orin2deid = 0.0
         epoch_loss_generator_deid2orin = 0.0
         epoch_loss_discriminator_orin = 0.0
@@ -359,6 +360,7 @@ def train(rank, params):
             optimizer_discriminator_deid.step()
 
             epoch_loss_generator += loss_gerator.item()
+            epoch_loss_feature += loss_feature.item()
             epoch_loss_generator_orin2deid += loss_gan_orin2deid.item()
             epoch_loss_generator_deid2orin += loss_gan_deid2orin.item()
             epoch_loss_discriminator_orin += loss_discriminator_orin.item()
@@ -366,9 +368,12 @@ def train(rank, params):
 
             progress_bar.set_description(f"Train  {rank:^5} {epoch+1:>3}/{end_epoch:>3} {loss_gerator:.4f} {loss_discriminator_orin:.4f} {loss_discriminator_deid:.4f} {loss_feature:.4f})")
 
-            epoch_loss_generator /= len(train_loader)
-            epoch_loss_discriminator_orin /= len(train_loader)
-            epoch_loss_discriminator_deid /= len(train_loader)
+        epoch_loss_generator /= len(train_loader)
+        epoch_loss_feature /= len(train_loader)
+        epoch_loss_discriminator_orin /= len(train_loader)
+        epoch_loss_discriminator_deid /= len(train_loader)
+        epoch_loss_discriminator_deid /= len(train_loader)
+        print(f"Valid  {rank:^5} {epoch + 1:>3}/{end_epoch:>3} {epoch_loss_generator:.4f} {epoch_loss_discriminator_orin:.4f} {epoch_loss_discriminator_deid:.4f} {epoch_loss_feature:.4f})")
 
         lr_scheduler_generator_orin2deid.step()
         lr_scheduler_generator_deid2orin.step()
