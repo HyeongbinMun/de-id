@@ -253,7 +253,17 @@ def train(rank, params):
     print(logging.s(f"- Model directory      : {model_dir}"))
     print(logging.s(f"- Resume               : {params['model']['cyclegan']['resume']}"))
     if params['model']['cyclegan']['resume']:
+        pretrained_model_dir = params["model"]["cyclegan"]["pretrained_model_dir"]
+        model_names = os.listdir(pretrained_model_dir)
+        generator_orin2deid_model_name = sorted([item for item in model_names if "generator_orin2deid" in item])[-1]
+        generator_deid2orin_model_name = sorted([item for item in model_names if "generator_deid2orin" in item])[-1]
+        discriminator_orin_model_name = sorted([item for item in model_names if "discriminator_orin" in item])[-1]
+        discriminator_deid_model_name = sorted([item for item in model_names if "discriminator_deid" in item])[-1]
         print(logging.s(f"- Pretrained model directory: {params['model']['cyclegan']['pretrained_model_dir']}"))
+        print(logging.s(f"   Generator Orin2Deid: {generator_orin2deid_model_name}"))
+        print(logging.s(f"   Generator Deid2Orin: {generator_deid2orin_model_name}"))
+        print(logging.s(f"   Discriminator Orin: {discriminator_orin_model_name}"))
+        print(logging.s(f"   Discriminator Deid: {discriminator_deid_model_name}"))
 
     terminal_size = shutil.get_terminal_size().columns
     print("Status   Dev   Epoch  GAN   D_orin D_deid feature")
@@ -370,10 +380,18 @@ def train(rank, params):
 
         epoch_loss_generator /= len(train_loader)
         epoch_loss_feature /= len(train_loader)
+        epoch_loss_generator_orin2deid /= len(train_loader)
+        epoch_loss_generator_deid2orin /= len(train_loader)
         epoch_loss_discriminator_orin /= len(train_loader)
         epoch_loss_discriminator_deid /= len(train_loader)
-        epoch_loss_discriminator_deid /= len(train_loader)
-        print(f"Valid  {rank:^5} {epoch + 1:>3}/{end_epoch:>3} {epoch_loss_generator:.4f} {epoch_loss_discriminator_orin:.4f} {epoch_loss_discriminator_deid:.4f} {epoch_loss_feature:.4f})")
+
+        wandb.log({"Generator Loss": epoch_loss_generator, "Epoch": epoch})
+        wandb.log({"Feature Similarity Loss": epoch_loss_feature, "Epoch": epoch})
+        wandb.log({"Generator Orin2Deid Loss": epoch_loss_discriminator_orin, "Epoch": epoch})
+        wandb.log({"Generator Deid2Orin Loss": epoch_loss_discriminator_orin, "Epoch": epoch})
+        wandb.log({"Discriminator Orin Loss": epoch_loss_discriminator_orin, "Epoch": epoch})
+        wandb.log({"Discriminator Deid Loss": epoch_loss_discriminator_deid, "Epoch": epoch})
+        progress_bar.set_description(f"Train  {rank:^5} {epoch + 1:>3}/{end_epoch:>3} {epoch_loss_generator:.4f} {epoch_loss_discriminator_orin:.4f} {epoch_loss_discriminator_deid:.4f} {epoch_loss_feature:.4f})")
 
         lr_scheduler_generator_orin2deid.step()
         lr_scheduler_generator_deid2orin.step()
@@ -464,7 +482,7 @@ def validate(
             images_orin = images_orin.clone().to(device)
             images_deid = images_deid.clone().to(device)
 
-            image_size = params["image_size"]
+            image_size = params["model"]["cyclegan"]["input_size"]
 
             batch_real_orin_faces = []
             batch_real_deid_faces = []
