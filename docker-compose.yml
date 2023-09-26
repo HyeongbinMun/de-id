@@ -97,7 +97,7 @@ services:
     container_name: de-id_deepfake
     build:
       context: ./
-      dockerfile: docker/dockerfile_disc
+      dockerfile: docker/dockerfile_deepfake
     runtime: nvidia
     restart: always
     ipc: "host"
