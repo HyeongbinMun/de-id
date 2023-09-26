@@ -4,16 +4,11 @@ train:
   device: 0
   master_addr: localhost
   master_port: "8001"
-  batch_size: 5
+  batch_size: 4
   epoch: 200
   valid_epoch: 5
   learning_rate: 0.0002
-  b1: 0.5
-  b2: 0.999
   decay_epoch: 100
-  image_size: 256
-  channels: 3
-  residual_block_number: 9
   dataset_dir: /dataset/cyclegan
   save_dir: /dataset/cyclegan_model/
   model:
@@ -25,10 +20,15 @@ train:
       model_name: ResNetCycleGAN
       resume: false
       pretrained_model_dir: ""
+      b1: 0.5
+      b2: 0.999
+      input_size: 256
+      channels: 3
+      residual_block_number: 9
   lambda:
     lambda_cycle: 10.0
     lambda_identity: 5.0
-    lambda_full_image: 0.7
+    lambda_full_image: 10.0
   wandb:
     project_name: CycleGAN
     account: jinhasong
