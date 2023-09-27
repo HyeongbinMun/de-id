@@ -29,7 +29,9 @@ from model.deid.cyclegan.models.layers import weights_init_normal
 
 
 def crop_face(images, boxes, index):
+    max_face = 16
     faces = []
+    face_sizes = []
     image_indices = []
     valid_boxes = []
 
@@ -44,8 +46,15 @@ def crop_face(images, boxes, index):
         if (x2 - x1) > 10 and (y2 - y1) > 10 and x1 > 0 and y1 > 0 and x2 > 0 and y2 > 0:
             face = images[index, :, y1:y2, x1:x2].clone()
             faces.append(face)
+            face_sizes.append((y2 - y1) * (x2 - x1))
             image_indices.append(index)
             valid_boxes.append(box)
+
+    sorted_indices = sorted(range(len(face_sizes)), key=lambda k: face_sizes[k], reverse=True)[:max_face]
+
+    faces = [faces[i] for i in sorted_indices]
+    image_indices = [image_indices[i] for i in sorted_indices]
+    valid_boxes = [valid_boxes[i] for i in sorted_indices]
 
     return faces, image_indices, valid_boxes
 
@@ -326,7 +335,7 @@ def train(rank, params):
 
             # Cycle loss
             batch_reco_orin_faces = generator_deid2orin(batch_fake_deid_faces)
-            batch_reco_deid_faces = generator_orin2deid(batch_fake_deid_faces)
+            batch_reco_deid_faces = generator_orin2deid(batch_fake_orin_faces)
             loss_cycle_orin = criterion_cycle_loss(batch_reco_orin_faces, batch_real_orin_faces)
             loss_cycle_deid = criterion_cycle_loss(batch_reco_deid_faces, batch_real_deid_faces)
             loss_cycle = (loss_cycle_orin + loss_cycle_deid) / 2
