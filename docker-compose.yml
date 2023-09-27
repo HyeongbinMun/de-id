@@ -39,10 +39,10 @@ services:
         volume:
           nocopy: true
     ports:
-      - "10022:22"
-      - "18000:8000"
-      - "18001:8001"
-      - "18888:8888"
+      - "8022:22"
+      - "8000:8000"
+      - "8001:8001"
+      - "8888:8888"
     stdin_open: true
     tty: true
     environment:
@@ -85,10 +85,56 @@ services:
         volume:
           nocopy: true
     ports:
-      - "20022:22"
-      - "28000:8000"
-      - "28001:8001"
-      - "28888:8888"
+      - "9022:22"
+      - "9000:8000"
+      - "9001:8001"
+      - "9888:8888"
+    stdin_open: true
+    tty: true
+    environment:
+      TZ: Asia/Seoul
+  deepfake:
+    container_name: de-id_deepfake
+    build:
+      context: ./
+      dockerfile: docker/dockerfile_deepfake
+    runtime: nvidia
+    restart: always
+    ipc: "host"
+    env_file:
+      - "docker/dockerenv.env"
+    volumes:
+      - /media/mmlab/hdd:/hdd
+      - type: volume
+        source: dataset
+        target: /dataset
+        volume:
+          nocopy: true
+      - type: volume
+        source: mldisk_shared
+        target: /mldisk_shared
+        volume:
+          nocopy: true
+      - type: volume
+        source: mldisk_shared_
+        target: /mldisk_shared_
+        volume:
+          nocopy: true
+      - type: volume
+        source: mldisk2
+        target: /mldisk2
+        volume:
+          nocopy: true
+      - type: volume
+        source: mlsun
+        target: /mlsun
+        volume:
+          nocopy: true
+    ports:
+      - "10022:22"
+      - "10000:8000"
+      - "10001:8001"
+      - "10888:8888"
     stdin_open: true
     tty: true
     environment:
