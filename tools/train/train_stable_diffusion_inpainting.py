@@ -3,6 +3,7 @@ import hashlib
 import itertools
 import math
 import os
+import wandb
 from pathlib import Path
 
 import torch
@@ -252,6 +253,8 @@ def parse_args():
 def main():
     args = parse_args()
     logging_dir = Path(args.output_dir, args.logging_dir)
+    wandb.init(project="de-identification", name="sd-inpainting-nomask")
+    wandb.config.update(args)
 
     project_config = ProjectConfiguration(
         total_limit=args.checkpoints_total_limit, project_dir=args.output_dir, logging_dir=logging_dir
@@ -626,10 +629,12 @@ def main():
                         save_path = os.path.join(args.output_dir, f"checkpoint-{global_step}")
                         accelerator.save_state(save_path)
                         logger.info(f"Saved state to {save_path}")
+                        wandb.save(save_path)
 
             logs = {"loss": loss.detach().item(), "lr": lr_scheduler.get_last_lr()[0]}
             progress_bar.set_postfix(**logs)
             accelerator.log(logs, step=global_step)
+            wandb.log(logs, step=global_step)
 
             if global_step >= args.max_train_steps:
                 break
