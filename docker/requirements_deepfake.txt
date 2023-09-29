@@ -1,0 +1,5 @@
+imageio
+insightface==0.2.1
+onnxruntime
+onnxruntime-gpu
+moviepy

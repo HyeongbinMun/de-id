@@ -1,23 +1,25 @@
 import os
 import shutil
 import sys
+
 import wandb
 import datetime
 import argparse
 import itertools
-import torchvision
+import numpy as np
+from tqdm import tqdm
+from PIL import Image, ImageDraw, ImageFont
 
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
-from tqdm import tqdm
-
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from config.models import model_classes
+from utility import logging
 from utility.params import load_params_yml
 from utility.model.model_file import load_checkpoint, save_checkpoint
+from config.models import model_classes
 from model.deid.dataset.dataset import FaceDetDataset, CycleGANFaceDetDataset
 from model.deid.cyclegan.utils.buffer import ReplayBuffer
 from model.deid.cyclegan.utils.lambdas import LambdaLR
@@ -73,10 +75,20 @@ def overlay_faces_on_image(original_images, fake_faces, valid_boxes, indices):
     return overlaid_images
 
 
+def save_caption_concat_image(tensor_image, captions, image_path):
+    image_w, image_h = tensor_image.shape[2]/3, tensor_image.shape[1]/2
+    pil_image = Image.fromarray((tensor_image.cpu().numpy().transpose(1, 2, 0) * 255).astype(np.uint8))
+    draw = ImageDraw.Draw(pil_image)
+    font = ImageFont.truetype("utility/font/malgun.ttf", 50)
+    positions = [(10, 10), (10 + image_w, 10), (10 + (image_w * 2), 10), (10, 10 + image_h), (10 + image_w, 10 + image_h), (10 + (image_w * 2), 10 + image_h)]
+    for idx, caption in enumerate(captions):
+        draw.text(positions[idx], caption, font=font, fill=(255, 0, 0))  # red color for the text
+    pil_image.save(image_path, "JPEG")
+
 
 def train(rank, params):
     if params["model"]["cyclegan"]["resume"]:
-        tmp_start_time_stamp = params["model"]["cyclegan"]["pretrained_model_path"].split("/")[-3].split("_")
+        tmp_start_time_stamp = params["model"]["cyclegan"]["pretrained_model_dir"].split("/")[-3].split("_")
         start_timestamp = f"{tmp_start_time_stamp[0]}_{tmp_start_time_stamp[1]}"
         wandb_run_name = f"{start_timestamp}-{params['model']['cyclegan']['model_name']}"
         wandb.init(project=params['wandb']['project_name'], entity=params['wandb']['account'], name=wandb_run_name, resume=True, id=wandb_run_name)
@@ -89,13 +101,13 @@ def train(rank, params):
     start_epoch = 0
     end_epoch = params["epoch"]
     valid_epoch = params["valid_epoch"]
-    learning_rate = params["learning_rate"]
-    b1 = params["b1"]
-    b2 = params["b2"]
     decay_epoch = params["decay_epoch"]
-    image_size = params["image_size"]
-    channels = params["channels"]
-    residual_block_number = params["residual_block_number"]
+    learning_rate = params["learning_rate"]
+    b1 = params["model"]["cyclegan"]["b1"]
+    b2 = params["model"]["cyclegan"]["b2"]
+    image_size = params["model"]["cyclegan"]["input_size"]
+    channels = params["model"]["cyclegan"]["channels"]
+    residual_block_number = params["model"]["cyclegan"]["residual_block_number"]
     lambda_cycle = params["lambda"]["lambda_cycle"]
     lambda_identity = params["lambda"]["lambda_identity"]
     lambda_full_image = params["lambda"]["lambda_full_image"]
@@ -190,14 +202,14 @@ def train(rank, params):
         # Load pretrained models
         pretrained_model_dir = params["model"]["cyclegan"]["pretrained_model_dir"]
         model_names = os.listdir(pretrained_model_dir)
-        generator_orin2deid_model_names = sorted([item for item in model_names if "generator_orin2deid" in item]).reverse()
-        generator_deid2orin_model_names = sorted([item for item in model_names if "generator_deid2orin" in item]).reverse()
-        discriminator_orin_model_names = sorted([item for item in model_names if "discriminator_orin" in item]).reverse()
-        discriminator_deid_model_names = sorted([item for item in model_names if "discriminator_deid" in item]).reverse()
-        generator_orin2deid, optimizer_generator_orin2deid, start_epoch, best_loss_generator = load_checkpoint(generator_orin2deid, optimizer_generator_orin2deid, generator_orin2deid_model_names[0])
-        generator_deid2orin, optimizer_generator_deid2orin, start_epoch, best_loss_generator = load_checkpoint(generator_orin2deid, optimizer_generator_deid2orin, generator_deid2orin_model_names[0])
-        discriminator_orin, optimizer_discriminator_orin, start_epoch, best_loss_discriminator_orin = load_checkpoint(discriminator_orin, optimizer_discriminator_orin, discriminator_orin_model_names[0])
-        discriminator_deid, optimizer_discriminator_deid, start_epoch, best_loss_discriminator_deid = load_checkpoint(discriminator_deid, optimizer_discriminator_deid, discriminator_deid_model_names[0])
+        generator_orin2deid_model_name = sorted([item for item in model_names if "generator_orin2deid" in item])[-1]
+        generator_deid2orin_model_name = sorted([item for item in model_names if "generator_deid2orin" in item])[-1]
+        discriminator_orin_model_name = sorted([item for item in model_names if "discriminator_orin" in item])[-1]
+        discriminator_deid_model_name = sorted([item for item in model_names if "discriminator_deid" in item])[-1]
+        generator_orin2deid, optimizer_generator_orin2deid, start_epoch, best_loss_generator = load_checkpoint(generator_orin2deid, optimizer_generator_orin2deid, os.path.join(pretrained_model_dir, generator_orin2deid_model_name))
+        generator_deid2orin, optimizer_generator_deid2orin, start_epoch, best_loss_generator = load_checkpoint(generator_orin2deid, optimizer_generator_deid2orin, os.path.join(pretrained_model_dir, generator_deid2orin_model_name))
+        discriminator_orin, optimizer_discriminator_orin, start_epoch, best_loss_discriminator_orin = load_checkpoint(discriminator_orin, optimizer_discriminator_orin, os.path.join(pretrained_model_dir, discriminator_orin_model_name))
+        discriminator_deid, optimizer_discriminator_deid, start_epoch, best_loss_discriminator_deid = load_checkpoint(discriminator_deid, optimizer_discriminator_deid, os.path.join(pretrained_model_dir, discriminator_deid_model_name))
     else:
         # Weight initialization
         generator_orin2deid.apply(weights_init_normal)
@@ -209,11 +221,49 @@ def train(rank, params):
         best_loss_discriminator_orin = float('inf')
         best_loss_discriminator_deid = float('inf')
 
-
     wandb.watch(generator_orin2deid)
     wandb.watch(generator_deid2orin)
     wandb.watch(discriminator_orin)
     wandb.watch(discriminator_deid)
+
+    print(logging.i("Dataset Description"))
+    print(logging.s(f"    training     : {len(train_dataset)}"))
+    print(logging.s(f"    validation   : {len(valid_dataset)}"))
+    print(logging.i("Parameters Description"))
+    print(logging.s(f"    Device       : {params['device']}"))
+    print(logging.s(f"    Batch size   : {params['batch_size']}"))
+    print(logging.s(f"    Max epoch    : {params['epoch']}"))
+    print(logging.s(f"    Learning rate: {learning_rate}"))
+    print(logging.s(f"    Decay epoch: {decay_epoch}"))
+    print(logging.s(f"    Valid epoch: {valid_epoch}"))
+    print(logging.s(f"    Model:"))
+    print(logging.s(f"    - Feature extractor: {params['model']['feature']['model_name']}"))
+    print(logging.s(f"    - CycleGAN         : {params['model']['cyclegan']['model_name']}"))
+    print(logging.s(f"       b1                   : {b1}"))
+    print(logging.s(f"       b2                   : {b2}"))
+    print(logging.s(f"       input size           : {image_size}"))
+    print(logging.s(f"       channels             : {channels}"))
+    print(logging.s(f"       # of residual block  : {residual_block_number}"))
+    print(logging.s(f"Loss lambda:"))
+    print(logging.s(f"- Lambda Cycle         : {lambda_cycle}"))
+    print(logging.s(f"- Lambda Identity      : {lambda_identity}"))
+    print(logging.s(f"- Lambda full image    : {lambda_full_image}"))
+    print(logging.s(f"Task Information"))
+    print(logging.s(f"- Task ID              : {start_timestamp + '_' + params['model']['cyclegan']['model_name']}"))
+    print(logging.s(f"- Model directory      : {model_dir}"))
+    print(logging.s(f"- Resume               : {params['model']['cyclegan']['resume']}"))
+    if params['model']['cyclegan']['resume']:
+        pretrained_model_dir = params["model"]["cyclegan"]["pretrained_model_dir"]
+        model_names = os.listdir(pretrained_model_dir)
+        generator_orin2deid_model_name = sorted([item for item in model_names if "generator_orin2deid" in item])[-1]
+        generator_deid2orin_model_name = sorted([item for item in model_names if "generator_deid2orin" in item])[-1]
+        discriminator_orin_model_name = sorted([item for item in model_names if "discriminator_orin" in item])[-1]
+        discriminator_deid_model_name = sorted([item for item in model_names if "discriminator_deid" in item])[-1]
+        print(logging.s(f"- Pretrained model directory: {params['model']['cyclegan']['pretrained_model_dir']}"))
+        print(logging.s(f"   Generator Orin2Deid: {generator_orin2deid_model_name}"))
+        print(logging.s(f"   Generator Deid2Orin: {generator_deid2orin_model_name}"))
+        print(logging.s(f"   Discriminator Orin: {discriminator_orin_model_name}"))
+        print(logging.s(f"   Discriminator Deid: {discriminator_deid_model_name}"))
 
     terminal_size = shutil.get_terminal_size().columns
     print("Status   Dev   Epoch  GAN   D_orin D_deid feature")
@@ -221,6 +271,7 @@ def train(rank, params):
 
     for epoch in range(start_epoch, end_epoch):
         epoch_loss_generator = 0.0
+        epoch_loss_feature = 0.0
         epoch_loss_generator_orin2deid = 0.0
         epoch_loss_generator_deid2orin = 0.0
         epoch_loss_discriminator_orin = 0.0
@@ -319,6 +370,7 @@ def train(rank, params):
             optimizer_discriminator_deid.step()
 
             epoch_loss_generator += loss_gerator.item()
+            epoch_loss_feature += loss_feature.item()
             epoch_loss_generator_orin2deid += loss_gan_orin2deid.item()
             epoch_loss_generator_deid2orin += loss_gan_deid2orin.item()
             epoch_loss_discriminator_orin += loss_discriminator_orin.item()
@@ -326,54 +378,72 @@ def train(rank, params):
 
             progress_bar.set_description(f"Train  {rank:^5} {epoch+1:>3}/{end_epoch:>3} {loss_gerator:.4f} {loss_discriminator_orin:.4f} {loss_discriminator_deid:.4f} {loss_feature:.4f})")
 
-            epoch_loss_generator /= len(train_loader)
-            epoch_loss_discriminator_orin /= len(train_loader)
-            epoch_loss_discriminator_deid /= len(train_loader)
+        epoch_loss_generator /= len(train_loader)
+        epoch_loss_feature /= len(train_loader)
+        epoch_loss_generator_orin2deid /= len(train_loader)
+        epoch_loss_generator_deid2orin /= len(train_loader)
+        epoch_loss_discriminator_orin /= len(train_loader)
+        epoch_loss_discriminator_deid /= len(train_loader)
 
-            if epoch_loss_generator < best_loss_generator:
-                best_loss_generator = epoch_loss_generator
-                save_checkpoint(epoch, generator_orin2deid, optimizer_generator_orin2deid, epoch_loss_generator_orin2deid, os.path.join(model_save_dir, f"epoch_generator_orin2deid_{epoch + 1:06d}.pth"))
-                save_checkpoint(epoch, generator_deid2orin, optimizer_generator_deid2orin, epoch_loss_generator_deid2orin, os.path.join(model_save_dir, f"epoch_generator_deid2orin_{epoch + 1:06d}.pth"))
-
-            if epoch_loss_discriminator_orin < best_loss_discriminator_orin:
-                best_loss_discriminator_orin = epoch_loss_discriminator_orin
-                save_checkpoint(epoch, discriminator_orin, optimizer_discriminator_orin, epoch_loss_discriminator_orin, os.path.join(model_save_dir, f"epoch_discriminator_orin_{epoch + 1:06d}.pth"))
-
-            if epoch_loss_discriminator_deid < best_loss_discriminator_deid:
-                best_loss_discriminator_deid = epoch_loss_discriminator_deid
-                save_checkpoint(epoch, discriminator_deid, optimizer_discriminator_deid, epoch_loss_discriminator_deid, os.path.join(model_save_dir, f"epoch_discriminator_deid_{epoch + 1:06d}.pth"))
-
-            if (epoch + 1) % valid_epoch == 0:
-                epoch_inverted_images_dir = os.path.join(generated_images_dir, f"epoch-{epoch + 1}")
-                if not os.path.exists(epoch_inverted_images_dir):
-                    os.makedirs(epoch_inverted_images_dir)
-                valid_loss_generator, valid_loss_feature, valid_loss_discriminator_orin, valid_loss_discriminator_deid = validate(
-                    valid_loader,
-                    generator_orin2deid,
-                    generator_deid2orin,
-                    discriminator_orin,
-                    discriminator_deid,
-                    feature_model,
-                    criterion_gan_loss,
-                    criterion_cycle_loss,
-                    criterion_identity_loss,
-                    criterion_full_image_feature_loss,
-                    device,
-                    params,
-                    epoch_inverted_images_dir
-                )
-                print(f"Generator validation Loss at epoch {epoch + 1}: {valid_loss_generator}")
-                print(f"Feature validation Loss at epoch {epoch + 1}: {valid_loss_feature}")
-                print(f"Discriminator Origin validation Loss at epoch {epoch + 1}: {valid_loss_discriminator_orin}")
-                print(f"Discriminator De-id  validation Loss at epoch {epoch + 1}: {valid_loss_discriminator_deid}")
-            wandb.log({"Train Generator Loss": epoch_loss_generator, "Epoch": epoch})
-            wandb.log({"Train Discriminator Orin Loss": epoch_loss_discriminator_orin, "Epoch": epoch})
-            wandb.log({"Train Discriminator Deid Loss": epoch_loss_discriminator_deid, "Epoch": epoch})
+        wandb.log({"Generator Loss": epoch_loss_generator, "Epoch": epoch})
+        wandb.log({"Feature Similarity Loss": epoch_loss_feature, "Epoch": epoch})
+        wandb.log({"Generator Orin2Deid Loss": epoch_loss_discriminator_orin, "Epoch": epoch})
+        wandb.log({"Generator Deid2Orin Loss": epoch_loss_discriminator_orin, "Epoch": epoch})
+        wandb.log({"Discriminator Orin Loss": epoch_loss_discriminator_orin, "Epoch": epoch})
+        wandb.log({"Discriminator Deid Loss": epoch_loss_discriminator_deid, "Epoch": epoch})
+        progress_bar.set_description(f"Train  {rank:^5} {epoch + 1:>3}/{end_epoch:>3} {epoch_loss_generator:.4f} {epoch_loss_discriminator_orin:.4f} {epoch_loss_discriminator_deid:.4f} {epoch_loss_feature:.4f})")
 
         lr_scheduler_generator_orin2deid.step()
         lr_scheduler_generator_deid2orin.step()
         lr_scheduler_discriminator_orin.step()
         lr_scheduler_discriminator_deid.step()
+
+        save_checkpoint(epoch, generator_orin2deid, optimizer_generator_orin2deid, epoch_loss_generator_orin2deid, os.path.join(model_save_dir, f"epoch_generator_orin2deid_{epoch + 1:06d}.pth"))
+        save_checkpoint(epoch, generator_deid2orin, optimizer_generator_deid2orin, epoch_loss_generator_deid2orin, os.path.join(model_save_dir, f"epoch_generator_deid2orin_{epoch + 1:06d}.pth"))
+        save_checkpoint(epoch, discriminator_orin, optimizer_discriminator_orin, epoch_loss_discriminator_orin, os.path.join(model_save_dir, f"epoch_discriminator_orin_{epoch + 1:06d}.pth"))
+        save_checkpoint(epoch, discriminator_deid, optimizer_discriminator_deid, epoch_loss_discriminator_deid, os.path.join(model_save_dir, f"epoch_discriminator_deid_{epoch + 1:06d}.pth"))
+
+        if epoch_loss_generator < best_loss_generator:
+            best_loss_generator = epoch_loss_generator
+            save_checkpoint(epoch, generator_orin2deid, optimizer_generator_orin2deid, epoch_loss_generator_orin2deid, os.path.join(model_save_dir, f"epoch_generator_orin2deid_best_{epoch + 1:06d}.pth"))
+            save_checkpoint(epoch, generator_deid2orin, optimizer_generator_deid2orin, epoch_loss_generator_deid2orin, os.path.join(model_save_dir, f"epoch_generator_deid2orin_best_{epoch + 1:06d}.pth"))
+
+        if epoch_loss_discriminator_orin < best_loss_discriminator_orin:
+            best_loss_discriminator_orin = epoch_loss_discriminator_orin
+            save_checkpoint(epoch, discriminator_orin, optimizer_discriminator_orin, epoch_loss_discriminator_orin, os.path.join(model_save_dir, f"epoch_discriminator_orin_best_{epoch + 1:06d}.pth"))
+
+        if epoch_loss_discriminator_deid < best_loss_discriminator_deid:
+            best_loss_discriminator_deid = epoch_loss_discriminator_deid
+            save_checkpoint(epoch, discriminator_deid, optimizer_discriminator_deid, epoch_loss_discriminator_deid, os.path.join(model_save_dir, f"epoch_discriminator_deid_best_{epoch + 1:06d}.pth"))
+
+        if (epoch + 1) % valid_epoch == 0:
+            epoch_inverted_images_dir = os.path.join(generated_images_dir, f"epoch-{epoch + 1}")
+            if not os.path.exists(epoch_inverted_images_dir):
+                os.makedirs(epoch_inverted_images_dir)
+            valid_loss_generator, valid_loss_feature, valid_loss_discriminator_orin, valid_loss_discriminator_deid = validate(
+                valid_loader,
+                generator_orin2deid,
+                generator_deid2orin,
+                discriminator_orin,
+                discriminator_deid,
+                feature_model,
+                criterion_gan_loss,
+                criterion_cycle_loss,
+                criterion_identity_loss,
+                criterion_full_image_feature_loss,
+                device,
+                params,
+                epoch_inverted_images_dir
+            )
+            print(f"Generator validation Loss at epoch {epoch + 1}: {valid_loss_generator}")
+            print(f"Feature validation Loss at epoch {epoch + 1}: {valid_loss_feature}")
+            print(f"Discriminator Origin validation Loss at epoch {epoch + 1}: {valid_loss_discriminator_orin}")
+            print(f"Discriminator De-id  validation Loss at epoch {epoch + 1}: {valid_loss_discriminator_deid}")
+            wandb.log({"Train Generator Loss": epoch_loss_generator, "Epoch": epoch})
+            wandb.log({"Train Discriminator Orin Loss": epoch_loss_discriminator_orin, "Epoch": epoch})
+            wandb.log({"Train Discriminator Deid Loss": epoch_loss_discriminator_deid, "Epoch": epoch})
+
+
 
 
 def validate(
@@ -412,7 +482,7 @@ def validate(
             images_orin = images_orin.clone().to(device)
             images_deid = images_deid.clone().to(device)
 
-            image_size = params["image_size"]
+            image_size = params["model"]["cyclegan"]["input_size"]
 
             batch_real_orin_faces = []
             batch_real_deid_faces = []
@@ -436,7 +506,7 @@ def validate(
             fake = torch.zeros((batch_real_orin_faces.size(0), *discriminator_orin.output_shape)).to(device)
 
             batch_fake_deid_faces = generator_orin2deid(batch_real_orin_faces)
-            batch_fake_orin_faces = generator_deid2orin(batch_real_deid_faces)
+            batch_fake_orin_faces = generator_deid2orin(batch_fake_deid_faces)
 
             loss_identity_real = criterion_identity_loss(batch_fake_orin_faces, batch_real_orin_faces)
             loss_identity_deid = criterion_identity_loss(batch_fake_deid_faces, batch_real_deid_faces)
@@ -452,10 +522,20 @@ def validate(
             loss_cycle_deid = criterion_cycle_loss(batch_reco_deid_faces, batch_real_deid_faces)
             loss_cycle = (loss_cycle_orin + loss_cycle_deid) / 2
 
-            deid_full_image = overlay_faces_on_image(images_orin, batch_fake_deid_faces, batch_faces_boxes, batch_images_indices)
-            torchvision.utils.save_image(deid_full_image, os.path.join(epoch_inverted_images_dir, images_real_path), normalize=True)
+            fake_deid_full_images = overlay_faces_on_image(images_orin, batch_fake_deid_faces, batch_faces_boxes, batch_images_indices)
+            fake_orin_full_images = overlay_faces_on_image(images_orin, batch_fake_orin_faces, batch_faces_boxes, batch_images_indices)
+            recov_orin_full_images = overlay_faces_on_image(images_orin, batch_reco_orin_faces, batch_faces_boxes, batch_images_indices)
+            recov_deid_full_images = overlay_faces_on_image(images_orin, batch_reco_deid_faces, batch_faces_boxes, batch_images_indices)
+
+            concat_images_orin = torch.cat((images_orin, fake_orin_full_images, recov_orin_full_images), dim=3)
+            concat_images_deid = torch.cat((images_deid, fake_deid_full_images, recov_deid_full_images), dim=3)
+            concat_images = torch.cat((concat_images_orin, concat_images_deid), dim=2)
+            for idx, concat_image in enumerate(concat_images):
+                image_name = images_real_path[idx].split("/")[-1]
+                print(os.path.join(epoch_inverted_images_dir, image_name))
+                save_caption_concat_image(concat_image, ["real_orin", "fake_orin", "recov_real", "real_deid", "fake_deid", "recov_deid"], os.path.join(epoch_inverted_images_dir, image_name))
             orin_features = feature_model(images_orin)
-            deid_features = feature_model(deid_full_image)
+            deid_features = feature_model(fake_deid_full_images)
             loss_feature = 1 - criterion_full_image_feature_loss(orin_features, deid_features).mean()
             total_loss_feature += loss_feature
 
