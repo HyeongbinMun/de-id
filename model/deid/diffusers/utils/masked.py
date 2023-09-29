@@ -17,8 +17,8 @@ def prepare_mask_and_masked_image(image, mask):
     mask = torch.from_numpy(mask)
 
     masked_image = image * (mask < 0.5)
-    save_image((mask + 1) / 2, '/data/face/test/mask_output.png')
-    save_image((masked_image + 1) / 2, '/data/face/test/masked_image_output.png')
+    # save_image((mask + 1) / 2, '/data/face/test/mask_output.png')
+    # save_image((masked_image + 1) / 2, '/data/face/test/masked_image_output.png')
 
     return mask, masked_image
 
@@ -43,6 +43,6 @@ def random_mask(im_shape, ratio=1, mask_full_image=False):
             (center[0] - size[0] // 2, center[1] - size[1] // 2, center[0] + size[0] // 2, center[1] + size[1] // 2),
             fill=255,
         )
-    mask.save('/data/face/test/random_mask_output.png')
+    # mask.save('/data/face/test/random_mask_output.png')
 
     return mask
