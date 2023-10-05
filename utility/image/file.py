@@ -1,5 +1,6 @@
 import os
 import cv2
+import numpy as np
 import torchvision.utils as vutils
 
 from utility.image.visualize import draw_boxed_text
@@ -59,3 +60,23 @@ def save_bbox_image_yolo(save_path, image, labels):
 
         cv2.rectangle(image, (left, top), (right, bottom), (0, 255, 0), 2)
     cv2.imwrite(save_path, image)
+
+def save_mask_from_yolo(img, yolo_labels, mask_save_path):
+    h, w = img.shape[:2]
+    mask = np.zeros((h, w), dtype=np.uint8)
+
+    for yolo_label in yolo_labels:
+        _, x_center, y_center, width, height = map(float, yolo_label.strip().split())
+        x_center *= w
+        y_center *= h
+        width *= w
+        height *= h
+
+        left = int(x_center - width / 2)
+        right = int(x_center + width / 2)
+        top = int(y_center - height / 2)
+        bottom = int(y_center + height / 2)
+
+        mask[top:bottom, left:right] = 255
+
+    cv2.imwrite(mask_save_path, mask)
