@@ -27,24 +27,27 @@ def check_and_delete_images(dataset_dir):
                     progress_bar.write(f"Deleted: {image_file}")
                 label_name = os.path.splitext(image_file)[0] + '.txt'
                 label_path = os.path.join(labels_folder, label_name)
-                with open(label_path, "r") as label_file:
-                    labels = label_file.readlines()
-                    if len(labels) == 0:
-                        os.remove(label_path)
-                        os.remove(os.path.join(images_folder, image_file))
-                        progress_bar.write(f"Deleted: {image_file}, {label_name}")
-                    elif len(labels) > 0:
-                        flag = False
-                        for label in labels:
-                            if len(label.split(" ")) != 5:
-                                print()
-                                flag = True
-                        if flag == True:
-                            print([len(label.split(" ")) for label in labels])
+                if os.path.exists(label_path):
+                    with open(label_path, "r") as label_file:
+                        labels = label_file.readlines()
+                        if len(labels) == 0:
                             os.remove(label_path)
                             os.remove(os.path.join(images_folder, image_file))
                             progress_bar.write(f"Deleted: {image_file}, {label_name}")
-                    label_file.close()
+                        elif len(labels) > 0:
+                            flag = False
+                            for label in labels:
+                                if len(label.split(" ")) != 5:
+                                    print()
+                                    flag = True
+                            if flag == True:
+                                print([len(label.split(" ")) for label in labels])
+                                os.remove(label_path)
+                                os.remove(os.path.join(images_folder, image_file))
+                                progress_bar.write(f"Deleted: {image_file}, {label_name}")
+                        label_file.close()
+                else:
+                    os.remove(image_path)
 
                 progress_bar.update(1)
         progress_bar.close()
