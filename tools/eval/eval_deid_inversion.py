@@ -18,12 +18,13 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from config.models import model_classes
 from utility.params import load_params_yml
 from utility.model.region import crop_face, overlay_faces_on_image
+from utility.image.dataset import compute_total_area, classify_percentage
 from model.deid.dataset.dataset import FaceDetDataset
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="object detection model batch inference test script")
     parser.add_argument("--config", type=str, default="/workspace/config/config_inversion_mobileunet_icd.yml", help="invertsion parameter file path")
-    parser.add_argument("--dataset_dir", type=str, default="/dataset/widerface/inversion/", help="test image directory path")
+    parser.add_argument("--dataset_dir", type=str, default="/dataset/dna/inversion/", help="test image directory path")
     parser.add_argument("--output_dir", type=str, default="/workspace/output/", help="image path")
     option = parser.parse_known_args()[0]
 
@@ -52,9 +53,10 @@ if __name__ == '__main__':
 
     # Feature Inversion Model
     inversion_config = model_config["inverter"]
-    checkpoint = torch.load(inversion_config["model_path"])
-    inversion_model = model_classes["deid"][inversion_config["model_name"]]().to(device)
+    checkpoint = torch.load(inversion_config["model_path"], map_location=device)
+    inversion_model = model_classes["deid"][inversion_config["model_name"]]()
     inversion_model.load_state_dict(checkpoint['model_state_dict'])
+    inversion_model = inversion_model.to(device)
     transform = transforms.Compose([transforms.ToTensor()])
     inversion_input_size = inversion_config['input_size']
     inversion_model.eval()
@@ -86,6 +88,14 @@ if __name__ == '__main__':
     total_psnr = 0.0
     total_cossim = 0.0
 
+    metrics_by_bbox_ratio = {
+        "10": {"ssim": 0, "psnr": 0, "cossim": 0, "count": 0},
+        "30": {"ssim": 0, "psnr": 0, "cossim": 0, "count": 0},
+        "50": {"ssim": 0, "psnr": 0, "cossim": 0, "count": 0},
+        "70": {"ssim": 0, "psnr": 0, "cossim": 0, "count": 0},
+        "70above": {"ssim": 0, "psnr": 0, "cossim": 0, "count": 0},
+    }
+    image_count = 0
     progress_bar = tqdm(enumerate(test_loader), total=len(test_loader))
     for batch_idx, (image_path, label_path, images, boxes_list) in progress_bar:
         images = images.clone().to(device)
@@ -114,18 +124,57 @@ if __name__ == '__main__':
 
             batch_orin_faces = torch.clamp(batch_orin_faces, 0, 1)
             batch_deid_faces = torch.clamp(batch_deid_faces, 0, 1)
-            orin_deid_psnr = psnr(batch_orin_faces, batch_deid_faces)
-            orin_deid_ssim = ssim(batch_orin_faces, batch_deid_faces)
-            feature_cossim = cosine_similarity(orin_full_feature, deid_full_feature).mean()
 
-            total_ssim += orin_deid_ssim.item()
-            total_psnr += orin_deid_psnr.item()
+            feature_cossim = cosine_similarity(orin_full_feature, deid_full_feature).mean()
             total_cossim += feature_cossim.item()
 
-    avg_ssim = total_ssim / len(test_loader)
-    avg_psnr = total_psnr / len(test_loader)
+            try:
+                for b, boxes in enumerate(boxes_list):
+                    image_w, image_h = images[b].shape[2], images[b].shape[1]
+                    box_list = []
+                    for box in boxes:
+                        x_center, y_center, width, height = box[1], box[2], box[3], box[4]
+                        x1 = int((x_center - width / 2) * image_w)
+                        y1 = int((y_center - height / 2) * image_h)
+                        x2 = int((x_center + width / 2) * image_w)
+                        y2 = int((y_center + height / 2) * image_h)
+                        box_list.append((x1, y1, x2, y2))
+                    bbox_area_ratio = compute_total_area(box_list, image_w, image_h)
+
+                    category = classify_percentage(bbox_area_ratio)
+
+                    orin_faces = batch_orin_faces[b].unsqueeze(0)
+                    deid_faces = batch_deid_faces[b].unsqueeze(0)
+
+                    orin_deid_psnr = psnr(orin_faces, deid_faces)
+                    orin_deid_ssim = ssim(orin_faces, deid_faces)
+
+                    total_ssim += orin_deid_ssim.item()
+                    total_psnr += orin_deid_psnr.item()
+
+                    single_orin_deid_ssim = orin_deid_ssim.item()
+                    single_orin_deid_psnr = orin_deid_psnr.item()
+
+                    metrics_by_bbox_ratio[category]["ssim"] += single_orin_deid_ssim
+                    metrics_by_bbox_ratio[category]["psnr"] += single_orin_deid_psnr
+                    metrics_by_bbox_ratio[category]["count"] += 1
+                    image_count += 1
+            except:
+                pass
+
+    avg_ssim = total_ssim / image_count
+    avg_psnr = total_psnr / image_count
     avg_cossim = total_cossim / len(test_loader)
 
     print(f"Average Face Image SSIM: {avg_ssim:.4f}")
     print(f"Average Face Image PSNR: {avg_psnr:.4f}")
     print(f"Average Full Image Cosine Similarity: {avg_cossim:.4f}")
+
+    for category, metrics in metrics_by_bbox_ratio.items():
+        if metrics["count"] > 0:
+            avg_ssim = metrics["ssim"] / metrics["count"]
+            avg_psnr = metrics["psnr"] / metrics["count"]
+            avg_cossim = metrics["cossim"] / metrics["count"]
+            print(f"\nCategory: {category}% BBox Ratio(image count: {metrics['count']})")
+            print(f"Average SSIM: {avg_ssim:.4f}")
+            print(f"Average PSNR: {avg_psnr:.4f}")
