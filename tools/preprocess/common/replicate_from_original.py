@@ -9,9 +9,9 @@ from utility import logging
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="create a dataset by copying images and labels from the original dataset that have matching names in the deepfake dataset.")
-    parser.add_argument("--origin_dir", type=str, default="/mldisk_shared/deid/ETRI/data/image/images_filtered", help="train image directory")
-    parser.add_argument("--deepfake_dir", type=str, default="/mldisk_shared/deid/ETRI/data/image/gan/deepfake", help="train image directory")
-    parser.add_argument("--target_dir", type=str, default="/mldisk_shared/deid/ETRI/data/image/gan/origin", help="train image directory")
+    parser.add_argument("--origin_dir", type=str, default="/dataset/widerface/refine_dataset", help="train image directory")
+    parser.add_argument("--deepfake_dir", type=str, default="/dataset/widerface/deepfake", help="train image directory")
+    parser.add_argument("--target_dir", type=str, default="/dataset/widerface/det", help="train image directory")
     option = parser.parse_known_args()[0]
 
     dataset1_base = option.origin_dir

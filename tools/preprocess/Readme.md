@@ -63,7 +63,7 @@ python3 tools/preprocess/common/resize_images.py --source_dir=./dataset --target
 * Source directory 는 [yolo dataset 구조](#target-directory-구조) 와 동일 해야 하며, target directory 는 source directory 와 같은 구조를 가지게 된다.
 ### 4. generate_face_label.py
 ```shell
-python3 tools/preprocess/common/generate_face_label.py --params_path=/workspace/config/params_yolov7face.yml dataset_dir=./dataset_1080p
+python3 tools/preprocess/common/generate_face_label.py --config=/workspace/config/params_yolov7face.yml --dataset_dir=./dataset_1080p
 ```
 * 인자 값으로 주어진 dataset direcory 하위에 있는 image 에서 얼굴을 감지하고, yolov7face 모델을 사용하여 labels directory 하위에 yolo 형식의 label을 생성한다.
 #### Dataset 구조

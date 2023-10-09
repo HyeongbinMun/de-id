@@ -14,64 +14,52 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+from model.deid.cyclegan.utils.lambdas import LambdaLR
+from utility.model.region import crop_face, overlay_faces_on_image, save_gan_concat_text_image
 from utility.params import load_params_yml
 from utility import logging
-from utility.image.file import save_tensort2image
-from utility.image.color_histogram import calculate_histogram_similarity
 from utility.model.model_file import save_checkpoint, load_checkpoint
 from model.deid.dataset.dataset import FaceDetDataset
 from config.models import model_classes
-
-
-def invert_regions(images, boxes_list, inversion_model, mse_loss_fn, params):
-    inverted_images = images.clone()
-    region_losses = []
-    image_size = params["model"]["inverter"]["input_size"]
-
-    for i, boxes in enumerate(boxes_list):
-        for box in boxes:
-            image_w, image_h = images.shape[3], images.shape[2]
-            class_id, x_center, y_center, w, h = box
-            x1 = int((x_center - w / 2) * image_w)
-            y1 = int((y_center - h / 2) * image_h)
-            x2 = int((x_center + w / 2) * image_w)
-            y2 = int((y_center + h / 2) * image_h)
-            if (x2 - x1) != 0 and (y2 - y1) != 0:
-                region = images[i, :, y1:y2, x1:x2].clone()
-                if region.shape[1] > 10 and region.shape[2] > 10:
-                    region_resized = F.interpolate(region.unsqueeze(0), size=(image_size, image_size), mode='bilinear', align_corners=False)
-                    region_inverted = inversion_model(region_resized)
-                    region_inverted_resized = F.interpolate(region_inverted, size=(int(region.shape[1]), int(region.shape[2])), mode='bilinear', align_corners=False)
-                    sim_loss = mse_loss_fn(region_resized, region_inverted)
-                    region_losses.append(sim_loss)
-                    inverted_images[i, :, y1:y2, x1:x2] = region_inverted_resized.squeeze(0)
-    region_loss = torch.mean(torch.Tensor(region_losses)).item()
-
-    return inverted_images, region_loss
 
 
 def validate(valid_loader, feature_model, inversion_model, loss_fns, device, params, inverted_images_dir):
     feature_model.eval()
     inversion_model.eval()
 
-    l1_loss_fn, mse_loss_fn, cosine_similarity, region_sim_loss_fn = loss_fns
+    criterion_identity_loss, criterion_feature = loss_fns
 
-    cosine_similarity = nn.CosineSimilarity(dim=1, eps=1e-6)
-    lrs = params["lambda"]["region_mse"]     # lambda region image mse
-    lfm = params["lambda"]["feature_mse"]    # lambda MobileNet_AVG feature mse
-    lfc = params["lambda"]["feature_cosine"] # lambda MobileNet_AVG cosine similarity
+    lfc = 1.0
+    lrs = 1.0
 
     valid_loss = 0.0
+    image_size = params["model"]["inverter"]["input_size"]
 
     with torch.no_grad():
         progress_bar = tqdm(enumerate(valid_loader), total=len(valid_loader))
         for batch_idx, (image_path, label_path, images, boxes_list) in progress_bar:
             images = images.clone().to(device)
-            inverted_images, region_loss = invert_regions(images, boxes_list, inversion_model, mse_loss_fn, params)
 
-            image_size = params["model"]["feature"]["input_size"]
+            batch_orin_faces = []
+            batch_images_indices = []
+            batch_faces_boxes = []
+
+            for i, boxes in enumerate(boxes_list):
+                real_orin_faces, faces_index, face_boxes = crop_face(images, boxes, i)
+                batch_orin_faces.extend(real_orin_faces)
+                batch_images_indices.extend(faces_index)
+                batch_faces_boxes.extend(face_boxes)
+
+            if len(batch_orin_faces) > 0:
+                batch_orin_faces = [F.interpolate(face.unsqueeze(0), size=(image_size, image_size), mode='bilinear', align_corners=False).squeeze(0) for face in batch_orin_faces]
+                batch_orin_faces = torch.stack(batch_orin_faces)
+
+                batch_deid_faces = inversion_model(batch_orin_faces)
+                deid_full_images = overlay_faces_on_image(images, batch_deid_faces, batch_faces_boxes, batch_images_indices)
+
             resized_origin_images = F.interpolate(images.clone(), size=(image_size, image_size))
-            resized_inverted_images = F.interpolate(inverted_images.clone(), size=(image_size, image_size))
+            resized_inverted_images = F.interpolate(deid_full_images.clone(), size=(image_size, image_size))
 
             origin_features = feature_model(resized_origin_images)
             inverted_features = feature_model(resized_inverted_images)
@@ -79,18 +67,19 @@ def validate(valid_loader, feature_model, inversion_model, loss_fns, device, par
             origin_features.requires_grad = True
             inverted_features.requires_grad = True
 
-            feature_mse_loss = mse_loss_fn(origin_features, inverted_features)
-            feature_cos_loss = cosine_similarity(origin_features, inverted_features).mean()
+            loss_face_identity = criterion_identity_loss(batch_orin_faces, batch_deid_faces)
+            loss_full_image_feature_similarity = criterion_feature(origin_features, inverted_features).mean()
 
-            lfeature_mse_loss = lfm * feature_mse_loss
-            lfeature_cos_loss = lfc * (1 - feature_cos_loss)
-            lregion_mse_loss = lrs * region_loss
-            loss = lfeature_mse_loss + lfeature_cos_loss + lregion_mse_loss
+            lfeature_cos_loss = lfc * (1 - loss_full_image_feature_similarity)
+            lregion_mse_loss = lrs * loss_face_identity
+            loss = lfeature_cos_loss + lregion_mse_loss
 
             if not os.path.exists(inverted_images_dir):
                 os.makedirs(inverted_images_dir)
-            for i, inverted_image in enumerate(inverted_images):
-                save_tensort2image(inverted_image, os.path.join(inverted_images_dir, f'{image_path[i].split("/")[-1]}'))
+            concat_images = torch.cat((images, deid_full_images), dim=3)
+            for idx, concat_image in enumerate(concat_images):
+                image_name = image_path[idx].split("/")[-1]
+                save_gan_concat_text_image(concat_image, ["orin", "deid"], os.path.join(inverted_images_dir, image_name))
 
             valid_loss += loss.item()
             progress_bar.set_description(f"Validating, Loss: {loss.item()}")
@@ -99,8 +88,8 @@ def validate(valid_loader, feature_model, inversion_model, loss_fns, device, par
     return valid_loss
 
 
-def test(test_loader, feature_model, inversion_model, criterion, device, params, inverted_images_dir):
-    return validate(test_loader, feature_model, inversion_model, criterion, device, params, inverted_images_dir)
+def test(valid_loader, feature_model, inversion_model, criterion, device, params, epoch_inverted_images_dir):
+    return validate(valid_loader, feature_model, inversion_model, criterion, device, params, epoch_inverted_images_dir)
 
 
 def train(rank, params):
@@ -193,49 +182,78 @@ def train(rank, params):
     else:
         start_epoch = 0
         best_loss = float('inf')
-    num_epochs = params["epoch"]
-    # wandb.watch(inversion_model)
+    end_epoch = params["epoch"]
+    decay_epoch = params["decay_epoch"]
+    image_size = params["model"]["inverter"]["input_size"]
+    wandb.watch(inversion_model)
+    lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=LambdaLR(end_epoch, start_epoch, decay_epoch).step)
 
-    l1_loss_fn = nn.L1Loss()
-    mse_loss_fn = nn.MSELoss()
-    region_sim_loss_fn = calculate_histogram_similarity
-    cosine_similarity = nn.CosineSimilarity(dim=1, eps=1e-6)
+    cuda_available = torch.cuda.is_available()
 
-    lfm = params["lambda"]["feature_mse"]    # lambda MobileNet_AVG feature mse
-    lfc = params["lambda"]["feature_cosine"] # lambda MobileNet_AVG cosine similarity
-    lrs = params["lambda"]["region_mse"]     # lambda region image mse
+    criterion_feature = nn.CosineSimilarity(dim=1, eps=1e-6)
+    criterion_identity_loss = torch.nn.MSELoss()
+    if cuda_available:
+        criterion_feature.cuda()
+        criterion_identity_loss.cuda()
+
+    lfc = 0.0
+    lrs = 0.0
 
     torch.autograd.set_detect_anomaly(True)
 
     terminal_size = shutil.get_terminal_size().columns
-    print("Status   Dev   Epoch  Loss ( mse  / cos  /region)")
+    print("Status   Dev   Epoch  Loss   Region  Feature")
     print("-" * terminal_size)
-    for epoch in range(start_epoch, num_epochs):
+    for epoch in range(start_epoch, end_epoch):
         epoch_loss = 0.0
+        if epoch == 0:
+            lrs = 0.9
+            lfc = 0.1
+        elif epoch == 50:
+            lrs = 0.7
+            lfc = 0.3
+        elif epoch == 100:
+            lrs = 0.5
+            lfc = 0.5
+        elif epoch == 150:
+            lrs = 0.1
+            lfc = 0.9
+
         progress_bar = tqdm(enumerate(train_loader), total=len(train_loader))
         for batch_idx, (image_path, label_path, images, boxes_list) in progress_bar:
             images = images.clone().to(device)
-            inverted_images, region_loss = invert_regions(images, boxes_list, inversion_model, mse_loss_fn, params)
+
+            batch_orin_faces = []
+            batch_images_indices = []
+            batch_faces_boxes = []
 
             with torch.no_grad():
-                image_size = params["model"]["feature"]["input_size"]
-                resized_origin_images = F.interpolate(images.clone(), size=(image_size, image_size))
-                resized_inverted_images = F.interpolate(inverted_images.clone(), size=(image_size, image_size))
-                origin_features = feature_model(resized_origin_images)
-                inverted_features = feature_model(resized_inverted_images)
+                for i, boxes in enumerate(boxes_list):
+                    real_orin_faces, faces_index, face_boxes = crop_face(images, boxes, i)
+                    batch_orin_faces.extend(real_orin_faces)
+                    batch_images_indices.extend(faces_index)
+                    batch_faces_boxes.extend(face_boxes)
 
-            origin_features.requires_grad = True
-            inverted_features.requires_grad = True
+                if len(batch_orin_faces) > 0:
+                    batch_orin_faces = [F.interpolate(face.unsqueeze(0), size=(image_size, image_size), mode='bilinear', align_corners=False).squeeze(0) for face in batch_orin_faces]
+                    batch_orin_faces = torch.stack(batch_orin_faces)
+
+                    batch_deid_faces = inversion_model(batch_orin_faces)
+                    deid_full_images = overlay_faces_on_image(images, batch_deid_faces, batch_faces_boxes, batch_images_indices)
 
             optimizer.zero_grad()
 
-            feature_mse_loss = mse_loss_fn(origin_features, inverted_features)
-            feature_cos_loss = cosine_similarity(origin_features, inverted_features).mean()
+            resized_origin_images = F.interpolate(images.clone(), size=(image_size, image_size))
+            resized_deid_images = F.interpolate(deid_full_images.clone(), size=(image_size, image_size))
+            origin_features = feature_model(resized_origin_images)
+            inverted_features = feature_model(resized_deid_images)
 
-            lfeature_mse_loss = lfm * feature_mse_loss
-            lfeature_cos_loss = lfc * (1 - feature_cos_loss)
-            lregion_mse_loss = lrs * region_loss
-            loss = lfeature_mse_loss + lfeature_cos_loss + lregion_mse_loss
+            loss_face_identity = criterion_identity_loss(batch_orin_faces, batch_deid_faces)
+            loss_full_image_feature_similarity = criterion_feature(origin_features, inverted_features).mean()
+
+            lfeature_cos_loss = lfc * (1 - loss_full_image_feature_similarity)
+            lregion_mse_loss = lrs * loss_face_identity
+            loss = lfeature_cos_loss + lregion_mse_loss
 
             if torch.isfinite(loss):
                 loss.backward()
@@ -244,10 +262,11 @@ def train(rank, params):
                 print(f"Skipping batch {batch_idx} due to invalid loss value: {loss.item()}")
 
             epoch_loss += loss.item()
-            progress_bar.set_description(f"Train  {rank:^5} {epoch+1:>3}/{num_epochs:>3} {loss:.4f}({feature_mse_loss:.4f}/{feature_cos_loss:.4f}/{region_loss:.4f})")
+            progress_bar.set_description(f"Train  {rank:^5} {epoch+1:>3}/{end_epoch:>3} {loss:.4f} {loss_face_identity:.4f} {loss_full_image_feature_similarity:.4f}")
 
         epoch_loss /= len(train_loader)
         save_checkpoint(epoch, inversion_model, optimizer, epoch_loss, os.path.join(model_save_dir, f"epoch_{epoch+1:06d}.pth"))
+        lr_scheduler.step()
 
         wandb.log({"Train Loss": epoch_loss, "Epoch": epoch})
         if epoch_loss < best_loss:
@@ -258,22 +277,22 @@ def train(rank, params):
             epoch_inverted_images_dir = os.path.join(inverted_images_dir, f"epoch-{epoch + 1}")
             if not os.path.exists(epoch_inverted_images_dir):
                 os.makedirs(epoch_inverted_images_dir)
-            valid_loss = validate(valid_loader, feature_model, inversion_model, (l1_loss_fn, mse_loss_fn, cosine_similarity, region_sim_loss_fn), device, params, epoch_inverted_images_dir)
+            valid_loss = validate(valid_loader, feature_model, inversion_model, (criterion_identity_loss, criterion_feature), device, params, epoch_inverted_images_dir)
             print(f"Validation Loss at epoch {epoch + 1}: {valid_loss}")
             wandb.log({"Validation Loss": valid_loss, "Epoch": epoch})
 
-    test_inverted_images_dir = os.path.join(inverted_images_dir, f"test")
+    test_inverted_images_dir = os.path.join(inverted_images_dir, "test")
     if not os.path.exists(test_inverted_images_dir):
         os.makedirs(test_inverted_images_dir)
-    test_loss = test(test_loader, feature_model, inversion_model, (l1_loss_fn, mse_loss_fn, cosine_similarity), device, params, test_inverted_images_dir)
+    test_loss = test(valid_loader, feature_model, inversion_model, (criterion_identity_loss, criterion_feature), device, params, test_inverted_images_dir)
     print(f"Test Loss: {test_loss}")
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="")
-    parser.add_argument("--params_path", type=str, default="config/params_inversion_resnet50.yml", help="model parameters file path")
+    parser.add_argument("--config", type=str, default="config/params_inversion_resnet50.yml", help="model parameters file path")
 
     option = parser.parse_known_args()[0]
-    params = load_params_yml(option.params_path)["train"]
+    params = load_params_yml(option.config)["train"]
 
     train(params["device"], params)
