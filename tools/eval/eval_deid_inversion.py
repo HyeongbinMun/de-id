@@ -24,7 +24,7 @@ from model.deid.dataset.dataset import FaceDetDataset
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="object detection model batch inference test script")
     parser.add_argument("--config", type=str, default="/workspace/config/config_inversion_mobileunet_icd.yml", help="invertsion parameter file path")
-    parser.add_argument("--dataset_dir", type=str, default="/dataset/dna/inversion/", help="test image directory path")
+    parser.add_argument("--dataset_dir", type=str, default="/dataset/widerface/inversion/", help="test image directory path")
     parser.add_argument("--output_dir", type=str, default="/workspace/output/", help="image path")
     option = parser.parse_known_args()[0]
 
@@ -125,11 +125,8 @@ if __name__ == '__main__':
             batch_orin_faces = torch.clamp(batch_orin_faces, 0, 1)
             batch_deid_faces = torch.clamp(batch_deid_faces, 0, 1)
 
-            feature_cossim = cosine_similarity(orin_full_feature, deid_full_feature).mean()
-            total_cossim += feature_cossim.item()
-
-            try:
-                for b, boxes in enumerate(boxes_list):
+            for b, boxes in enumerate(boxes_list):
+                try:
                     image_w, image_h = images[b].shape[2], images[b].shape[1]
                     box_list = []
                     for box in boxes:
@@ -149,22 +146,27 @@ if __name__ == '__main__':
                     orin_deid_psnr = psnr(orin_faces, deid_faces)
                     orin_deid_ssim = ssim(orin_faces, deid_faces)
 
+                    feature_cossim = cosine_similarity(orin_full_feature[b].unsqueeze(0), deid_full_feature[b].unsqueeze(0)).mean()
+
                     total_ssim += orin_deid_ssim.item()
                     total_psnr += orin_deid_psnr.item()
+                    total_cossim += feature_cossim.item()
 
                     single_orin_deid_ssim = orin_deid_ssim.item()
                     single_orin_deid_psnr = orin_deid_psnr.item()
+                    single_orin_deid_cossim = feature_cossim.item()
 
                     metrics_by_bbox_ratio[category]["ssim"] += single_orin_deid_ssim
                     metrics_by_bbox_ratio[category]["psnr"] += single_orin_deid_psnr
+                    metrics_by_bbox_ratio[category]["cossim"] += single_orin_deid_cossim
                     metrics_by_bbox_ratio[category]["count"] += 1
                     image_count += 1
-            except:
-                pass
+                except:
+                    pass
 
     avg_ssim = total_ssim / image_count
     avg_psnr = total_psnr / image_count
-    avg_cossim = total_cossim / len(test_loader)
+    avg_cossim = total_cossim / image_count
 
     print(f"Average Face Image SSIM: {avg_ssim:.4f}")
     print(f"Average Face Image PSNR: {avg_psnr:.4f}")
@@ -178,3 +180,4 @@ if __name__ == '__main__':
             print(f"\nCategory: {category}% BBox Ratio(image count: {metrics['count']})")
             print(f"Average SSIM: {avg_ssim:.4f}")
             print(f"Average PSNR: {avg_psnr:.4f}")
+            print(f"Average Full Image Similarity(Cosine Similarity: {avg_cossim:.4f}")
