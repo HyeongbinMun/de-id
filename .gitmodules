@@ -16,3 +16,6 @@
 [submodule "model/deid/stylegan2"]
 	path = model/deid/stylegan2
 	url = https://github.com/JinhaSong/stylegan2-pytorch
+[submodule "model/vcd/s2vs"]
+	path = model/vcd/s2vs
+	url = https://github.com/JinhaSong/s2vs
