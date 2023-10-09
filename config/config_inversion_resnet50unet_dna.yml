@@ -1,8 +1,22 @@
 infer:
   device: 0
-  model_name: ResNet50UNetInverter
-  input_size: 224
-  model_path: /hdd/feature_inversion/20230712_185154_ResNet50UNetInverter/weights/epoch_000030.pth
+  model:
+    face:
+      model_name: yolov7
+      model_path: /workspace/model/weights/yolov7-w6-face.pt
+      device: 0
+      image_size: 1280
+      conf_thresh: 0.1
+      batch_size: 16
+      iou_thresh: 0.5
+    feature:
+      model_name: ResNet50
+      model_path: /workspace/model/weights/sscd_disc_mixup.torchvision.pt
+      input_size: 224
+    inverter:
+      model_name: MobileUNetInverter
+      model_path: ''
+      input_size: 224
 train:
   device: 0
   master_addr: 0.0.0.0
@@ -12,6 +26,7 @@ train:
   epoch: 100
   dataset_dir: /dataset/images_1080/
   save_dir: /hdd/feature_inversion/
+  decay_epoch: 50
   valid_epoch: 5
   model:
     feature:
