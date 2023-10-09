@@ -290,9 +290,9 @@ def train(rank, params):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="")
-    parser.add_argument("--params_path", type=str, default="config/params_inversion_resnet50.yml", help="model parameters file path")
+    parser.add_argument("--config", type=str, default="config/params_inversion_resnet50.yml", help="model parameters file path")
 
     option = parser.parse_known_args()[0]
-    params = load_params_yml(option.params_path)["train"]
+    params = load_params_yml(option.config)["train"]
 
     train(params["device"], params)
