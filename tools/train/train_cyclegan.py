@@ -211,6 +211,8 @@ def train(rank, params):
     print("Status   Dev   Epoch  GAN   D_orin D_deid feature")
     print("-" * terminal_size)
 
+    lambda_deid_orin = -0.3
+    lambda_deid_deid = 0.7
     for epoch in range(start_epoch, end_epoch):
         epoch_loss_generator = 0.0
         epoch_loss_feature = 0.0
@@ -258,9 +260,9 @@ def train(rank, params):
                 batch_fake_orin_faces = generator_deid2orin(batch_real_deid_faces)
 
                 # Identity loss
-                loss_identity_real = criterion_identity_loss(batch_fake_orin_faces, batch_real_orin_faces)
-                loss_identity_deid = criterion_identity_loss(batch_fake_deid_faces, batch_real_deid_faces)
-                loss_identity = (loss_identity_real + loss_identity_deid) / 2
+                loss_identity_deid_orin = criterion_identity_loss(batch_fake_deid_faces, batch_real_orin_faces)  # This loss encourages fake_deid to be different from real_orin
+                loss_identity_deid_deid = criterion_identity_loss(batch_fake_deid_faces, batch_real_deid_faces)  # This loss encourages fake_deid to be similar to real_deid
+                loss_identity = (lambda_deid_orin * loss_identity_deid_orin) + (lambda_deid_deid * loss_identity_deid_deid)
 
                 # GAN loss
                 loss_gan_orin2deid = criterion_gan_loss(discriminator_deid(batch_fake_deid_faces), valid)  # MSE loss
@@ -439,62 +441,62 @@ def validate(
                 batch_real_deid_faces.extend(real_deid_faces)
                 batch_images_indices.extend(faces_index)
                 batch_faces_boxes.extend(face_boxes)
+            if len(batch_real_orin_faces) > 0 and len(batch_real_deid_faces) :
+                batch_real_orin_faces = [F.interpolate(face.unsqueeze(0), size=(image_size, image_size), mode='bilinear', align_corners=False).squeeze(0) for face in batch_real_orin_faces]
+                batch_real_deid_faces = [F.interpolate(face.unsqueeze(0), size=(image_size, image_size), mode='bilinear', align_corners=False).squeeze(0) for face in batch_real_deid_faces]
+                batch_real_orin_faces = torch.stack(batch_real_orin_faces)
+                batch_real_deid_faces = torch.stack(batch_real_deid_faces)
 
-            batch_real_orin_faces = [F.interpolate(face.unsqueeze(0), size=(image_size, image_size), mode='bilinear', align_corners=False).squeeze(0) for face in batch_real_orin_faces]
-            batch_real_deid_faces = [F.interpolate(face.unsqueeze(0), size=(image_size, image_size), mode='bilinear', align_corners=False).squeeze(0) for face in batch_real_deid_faces]
-            batch_real_orin_faces = torch.stack(batch_real_orin_faces)
-            batch_real_deid_faces = torch.stack(batch_real_deid_faces)
+                valid = torch.ones((batch_real_orin_faces.size(0), *discriminator_orin.output_shape)).to(device)
+                fake = torch.zeros((batch_real_orin_faces.size(0), *discriminator_orin.output_shape)).to(device)
 
-            valid = torch.ones((batch_real_orin_faces.size(0), *discriminator_orin.output_shape)).to(device)
-            fake = torch.zeros((batch_real_orin_faces.size(0), *discriminator_orin.output_shape)).to(device)
+                batch_fake_deid_faces = generator_orin2deid(batch_real_orin_faces)
+                batch_fake_orin_faces = generator_deid2orin(batch_fake_deid_faces)
 
-            batch_fake_deid_faces = generator_orin2deid(batch_real_orin_faces)
-            batch_fake_orin_faces = generator_deid2orin(batch_fake_deid_faces)
+                loss_identity_real = criterion_identity_loss(batch_fake_orin_faces, batch_real_orin_faces)
+                loss_identity_deid = criterion_identity_loss(batch_fake_deid_faces, batch_real_deid_faces)
+                loss_identity = (loss_identity_real + loss_identity_deid) / 2
 
-            loss_identity_real = criterion_identity_loss(batch_fake_orin_faces, batch_real_orin_faces)
-            loss_identity_deid = criterion_identity_loss(batch_fake_deid_faces, batch_real_deid_faces)
-            loss_identity = (loss_identity_real + loss_identity_deid) / 2
+                loss_gan_orin2deid = criterion_gan_loss(discriminator_deid(batch_fake_deid_faces), valid)  # MSE loss
+                loss_gan_deid2orin = criterion_gan_loss(discriminator_orin(batch_fake_orin_faces), valid)
+                loss_gan = (loss_gan_orin2deid + loss_gan_deid2orin) / 2
 
-            loss_gan_orin2deid = criterion_gan_loss(discriminator_deid(batch_fake_deid_faces), valid)  # MSE loss
-            loss_gan_deid2orin = criterion_gan_loss(discriminator_orin(batch_fake_orin_faces), valid)
-            loss_gan = (loss_gan_orin2deid + loss_gan_deid2orin) / 2
+                batch_reco_orin_faces = generator_deid2orin(batch_fake_deid_faces)
+                batch_reco_deid_faces = generator_orin2deid(batch_fake_deid_faces)
+                loss_cycle_orin = criterion_cycle_loss(batch_reco_orin_faces, batch_real_orin_faces)
+                loss_cycle_deid = criterion_cycle_loss(batch_reco_deid_faces, batch_real_deid_faces)
+                loss_cycle = (loss_cycle_orin + loss_cycle_deid) / 2
 
-            batch_reco_orin_faces = generator_deid2orin(batch_fake_deid_faces)
-            batch_reco_deid_faces = generator_orin2deid(batch_fake_deid_faces)
-            loss_cycle_orin = criterion_cycle_loss(batch_reco_orin_faces, batch_real_orin_faces)
-            loss_cycle_deid = criterion_cycle_loss(batch_reco_deid_faces, batch_real_deid_faces)
-            loss_cycle = (loss_cycle_orin + loss_cycle_deid) / 2
+                fake_deid_full_images = overlay_faces_on_image(images_orin, batch_fake_deid_faces, batch_faces_boxes, batch_images_indices)
+                fake_orin_full_images = overlay_faces_on_image(images_orin, batch_fake_orin_faces, batch_faces_boxes, batch_images_indices)
+                recov_orin_full_images = overlay_faces_on_image(images_orin, batch_reco_orin_faces, batch_faces_boxes, batch_images_indices)
+                recov_deid_full_images = overlay_faces_on_image(images_orin, batch_reco_deid_faces, batch_faces_boxes, batch_images_indices)
 
-            fake_deid_full_images = overlay_faces_on_image(images_orin, batch_fake_deid_faces, batch_faces_boxes, batch_images_indices)
-            fake_orin_full_images = overlay_faces_on_image(images_orin, batch_fake_orin_faces, batch_faces_boxes, batch_images_indices)
-            recov_orin_full_images = overlay_faces_on_image(images_orin, batch_reco_orin_faces, batch_faces_boxes, batch_images_indices)
-            recov_deid_full_images = overlay_faces_on_image(images_orin, batch_reco_deid_faces, batch_faces_boxes, batch_images_indices)
+                concat_images_orin = torch.cat((images_orin, fake_orin_full_images, recov_orin_full_images), dim=3)
+                concat_images_deid = torch.cat((images_deid, fake_deid_full_images, recov_deid_full_images), dim=3)
+                concat_images = torch.cat((concat_images_orin, concat_images_deid), dim=2)
+                for idx, concat_image in enumerate(concat_images):
+                    image_name = images_real_path[idx].split("/")[-1]
+                    save_gan_concat_text_image(concat_image, ["real_orin", "fake_orin", "recov_real", "real_deid", "fake_deid", "recov_deid"], os.path.join(epoch_inverted_images_dir, image_name))
+                orin_features = feature_model(images_orin)
+                deid_features = feature_model(fake_deid_full_images)
+                loss_feature = 1 - criterion_full_image_feature_loss(orin_features, deid_features).mean()
+                total_loss_feature += loss_feature
 
-            concat_images_orin = torch.cat((images_orin, fake_orin_full_images, recov_orin_full_images), dim=3)
-            concat_images_deid = torch.cat((images_deid, fake_deid_full_images, recov_deid_full_images), dim=3)
-            concat_images = torch.cat((concat_images_orin, concat_images_deid), dim=2)
-            for idx, concat_image in enumerate(concat_images):
-                image_name = images_real_path[idx].split("/")[-1]
-                save_gan_concat_text_image(concat_image, ["real_orin", "fake_orin", "recov_real", "real_deid", "fake_deid", "recov_deid"], os.path.join(epoch_inverted_images_dir, image_name))
-            orin_features = feature_model(images_orin)
-            deid_features = feature_model(fake_deid_full_images)
-            loss_feature = 1 - criterion_full_image_feature_loss(orin_features, deid_features).mean()
-            total_loss_feature += loss_feature
+                loss_generator = loss_gan + lambda_cycle * loss_cycle + lambda_identity * loss_identity + lambda_full_image * loss_feature
+                total_loss_generator += loss_generator
 
-            loss_gerator = loss_gan + lambda_cycle * loss_cycle + lambda_identity * loss_identity + lambda_full_image * loss_feature
-            total_loss_generator += loss_gerator
+                loss_real = criterion_gan_loss(discriminator_orin(batch_real_orin_faces), valid)
+                batch_fake_orin = valid_fake_orin_buffer.push_and_pop(batch_fake_orin_faces)
+                loss_fake = criterion_gan_loss(discriminator_orin(batch_fake_orin.detach()), fake)
+                loss_discriminator_orin = (loss_real + loss_fake) / 2
+                total_loss_discriminator_orin += loss_discriminator_orin
 
-            loss_real = criterion_gan_loss(discriminator_orin(batch_real_orin_faces), valid)
-            batch_fake_orin = valid_fake_orin_buffer.push_and_pop(batch_fake_orin_faces)
-            loss_fake = criterion_gan_loss(discriminator_orin(batch_fake_orin.detach()), fake)
-            loss_discriminator_orin = (loss_real + loss_fake) / 2
-            total_loss_discriminator_orin += loss_discriminator_orin
-
-            loss_real = criterion_gan_loss(discriminator_deid(batch_real_deid_faces), valid)
-            batch_fake_deid = valid_fake_deid_buffer.push_and_pop(batch_fake_deid_faces)
-            loss_fake = criterion_gan_loss(discriminator_deid(batch_fake_deid.detach()), fake)
-            loss_discriminator_deid = (loss_real + loss_fake) / 2
-            total_loss_discriminator_deid += loss_discriminator_deid
+                loss_real = criterion_gan_loss(discriminator_deid(batch_real_deid_faces), valid)
+                batch_fake_deid = valid_fake_deid_buffer.push_and_pop(batch_fake_deid_faces)
+                loss_fake = criterion_gan_loss(discriminator_deid(batch_fake_deid.detach()), fake)
+                loss_discriminator_deid = (loss_real + loss_fake) / 2
+                total_loss_discriminator_deid += loss_discriminator_deid
 
     valid_loss_generator = total_loss_generator / len(valid_loader)
     valid_loss_feature = total_loss_feature / len(valid_loader)
