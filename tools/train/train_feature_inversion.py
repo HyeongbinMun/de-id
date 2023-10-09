@@ -30,8 +30,8 @@ def validate(valid_loader, feature_model, inversion_model, loss_fns, device, par
 
     criterion_identity_loss, criterion_feature = loss_fns
 
-    lfc = params["lambda"]["feature_cosine"] # lambda MobileNet_AVG cosine similarity
-    lrs = params["lambda"]["region_mse"]     # lambda region image mse
+    lfc = 1.0
+    lrs = 1.0
 
     valid_loss = 0.0
     image_size = params["model"]["inverter"]["input_size"]
@@ -190,17 +190,14 @@ def train(rank, params):
 
     cuda_available = torch.cuda.is_available()
 
-    l1_loss_fn = nn.L1Loss()
-    mse_loss_fn = nn.MSELoss()
     criterion_feature = nn.CosineSimilarity(dim=1, eps=1e-6)
     criterion_identity_loss = torch.nn.MSELoss()
     if cuda_available:
         criterion_feature.cuda()
         criterion_identity_loss.cuda()
 
-
-    lfc = params["lambda"]["feature_cosine"] # lambda MobileNet_AVG cosine similarity
-    lrs = params["lambda"]["region_mse"]     # lambda region image mse
+    lfc = 0.0
+    lrs = 0.0
 
     torch.autograd.set_detect_anomaly(True)
 
@@ -283,8 +280,6 @@ def train(rank, params):
             valid_loss = validate(valid_loader, feature_model, inversion_model, (criterion_identity_loss, criterion_feature), device, params, epoch_inverted_images_dir)
             print(f"Validation Loss at epoch {epoch + 1}: {valid_loss}")
             wandb.log({"Validation Loss": valid_loss, "Epoch": epoch})
-
-
 
     test_inverted_images_dir = os.path.join(inverted_images_dir, "test")
     if not os.path.exists(test_inverted_images_dir):
