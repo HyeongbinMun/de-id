@@ -19,7 +19,7 @@ from utility.params import load_params_yml
 from utility.model.model_file import load_checkpoint, save_checkpoint
 from utility.model.region import crop_face, overlay_faces_on_image, save_gan_concat_text_image
 from config.models import model_classes
-from model.deid.dataset.dataset import CycleGANFaceDetDataset
+from model.deid.dataset.dataset import GANFaceDetDataset
 from model.deid.cyclegan.utils.buffer import ReplayBuffer
 from model.deid.cyclegan.utils.lambdas import LambdaLR
 from model.deid.cyclegan.models.discriminator import Discriminator
@@ -77,18 +77,18 @@ def train(rank, params):
         os.makedirs(generated_images_dir)
 
     # Data Loaders
-    train_dataset = CycleGANFaceDetDataset(train_image_real_dir, train_image_deid_dir, train_label_dir)
-    valid_dataset = CycleGANFaceDetDataset(valid_image_real_dir, valid_image_deid_dir, valid_label_dir)
+    train_dataset = GANFaceDetDataset(train_image_real_dir, train_image_deid_dir, train_label_dir)
+    valid_dataset = GANFaceDetDataset(valid_image_real_dir, valid_image_deid_dir, valid_label_dir)
     train_loader = DataLoader(train_dataset,
                               batch_size=batch_size,
                               shuffle=True,
                               num_workers=1,
-                              collate_fn=CycleGANFaceDetDataset.collate_fn)
+                              collate_fn=GANFaceDetDataset.collate_fn)
     valid_loader = DataLoader(valid_dataset,
                               batch_size=batch_size,
                               shuffle=True,
                               num_workers=1,
-                              collate_fn=CycleGANFaceDetDataset.collate_fn)
+                              collate_fn=GANFaceDetDataset.collate_fn)
 
     if params["model"]["feature"]["model_name"] == "ResNet50":
         feature_model = model_classes["feature"][params["model"]["feature"]["model_name"]](backbone="TV_RESNET50", dims=512, pool_param=3).to(device)

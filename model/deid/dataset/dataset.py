@@ -47,7 +47,7 @@ class FaceDetDataset(Dataset):
         return image_paths, label_paths, images, boxes_list
 
 
-class CycleGANFaceDetDataset(Dataset):
+class GANFaceDetDataset(Dataset):
     def __init__(self, image_orin_dir, image_deid_dir, label_dir, transform=None):
         self.image_orin_dir = image_orin_dir
         self.image_deid_dir = image_deid_dir
