@@ -13,3 +13,6 @@
 [submodule "model/icd/sscd"]
 	path = model/icd/sscd
 	url = https://github.com/jinhasong/sscd-copy-detection
+[submodule "model/deid/stylegan2"]
+	path = model/deid/stylegan2
+	url = https://github.com/JinhaSong/stylegan2-pytorch
