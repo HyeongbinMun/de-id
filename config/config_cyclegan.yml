@@ -1,16 +1,16 @@
 infer:
   model_name: cyclegan
 train:
-  device: 0
+  device: 2
   master_addr: localhost
   master_port: "8001"
-  batch_size: 4
+  batch_size: 2
   epoch: 200
   valid_epoch: 5
   learning_rate: 0.0002
   decay_epoch: 100
-  dataset_dir: /dataset/cyclegan
-  save_dir: /dataset/cyclegan_model/
+  dataset_dir: /dataset/widerface/deepfake_resize
+  save_dir: /dataset/cyclegan_widerface/
   model:
     feature:
       model_name: ResNet50
@@ -19,15 +19,15 @@ train:
     cyclegan:
       model_name: ResNetCycleGAN
       resume: false
-      pretrained_model_dir: ""
+      pretrained_model_dir: /dataset/cyclegan_model/20230923_140447_ResNetCycleGAN/weights/
       b1: 0.5
       b2: 0.999
       input_size: 256
       channels: 3
       residual_block_number: 9
   lambda:
-    lambda_cycle: 10.0
-    lambda_identity: 5.0
+    lambda_cycle: 5.0
+    lambda_identity: 10.0
     lambda_full_image: 10.0
   wandb:
     project_name: CycleGAN

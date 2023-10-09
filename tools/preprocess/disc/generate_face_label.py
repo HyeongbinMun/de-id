@@ -13,13 +13,13 @@ from utility.image.coordinates import convert_coordinates_to_yolo_format
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Detects faces in images under the given directory in the format yolo dataset and generates labels under the directory labels in the format yolo by using the yolov7face model.")
-    parser.add_argument("--params_path", type=str, default="/workspace/config/params_yolov7face.yml", help="parameter file path")
+    parser.add_argument("--config", type=str, default="/workspace/config/params_yolov7face.yml", help="parameter file path")
     parser.add_argument("--dataset_dir", type=str, default="/dataset/disc21", help="source image directory")
 
     option = parser.parse_known_args()[0]
 
     dataset_dir = option.dataset_dir
-    params_yml_path = option.params_path
+    params_yml_path = option.config
     params = load_params_yml(params_yml_path)["infer"]
     model = YOLOv7Face(params)
 

@@ -15,8 +15,8 @@ from model.deid.feature_inversion.feature_inversion import FeatureInversion
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="object detection model batch inference test script")
-    parser.add_argument("--face_params_path", type=str, default="/workspace/config/params_yolov5face.yml", help="parameter file path")
-    parser.add_argument("--inverter_params_path", type=str, default="/workspace/config/params_inversion_resnet50_icd.yml", help="parameter file path")
+    parser.add_argument("--face_config", type=str, default="/workspace/config/params_yolov5face.yml", help="parameter file path")
+    parser.add_argument("--inverter_config", type=str, default="/workspace/config/params_inversion_resnet50_icd.yml", help="parameter file path")
     parser.add_argument("--image_dir", type=str, default="/workspace/data/image/", help="image path")
     parser.add_argument("--output_dir", type=str, default="/workspace/output/", help="image path")
     option = parser.parse_known_args()[0]
@@ -24,11 +24,11 @@ if __name__ == '__main__':
     image_dir = option.image_dir
     output_dir = option.output_dir
     image_paths = [os.path.join(image_dir, image_name) for image_name in os.listdir(image_dir)]
-    face_params_path = option.face_params_path
-    inverter_params_path = option.inverter_params_path
+    face_config = option.face_config
+    inverter_config = option.inverter_config
 
-    face_params = load_params_yml(face_params_path)["infer"]
-    inverter_params = load_params_yml(inverter_params_path)["infer"]
+    face_params = load_params_yml(face_config)["infer"]
+    inverter_params = load_params_yml(inverter_config)["infer"]
 
     face_model = YOLOv5Face(face_params)
     inversion_model = FeatureInversion(inverter_params)

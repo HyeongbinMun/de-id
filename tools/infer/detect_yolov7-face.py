@@ -10,11 +10,11 @@ from model.det.face.yolov7.yolov7_face import YOLOv7Face
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="object detection model batch inference test script")
     parser.add_argument("--image_path", type=str, default="/workspace/data/image/test.jpg", help="image path")
-    parser.add_argument("--params_path", type=str, default="config/params_yolov7face.yml", help="parameter file path")
+    parser.add_argument("--config", type=str, default="config/params_yolov7face.yml", help="parameter file path")
     option = parser.parse_known_args()[0]
 
     image_path = option.image_path
-    params_yml_path = option.params_path
+    params_yml_path = option.config
     images = None
     if os.path.isdir(image_path):
         image_paths = [os.path.join(image_path, image_name) for image_name in os.listdir(image_path)]
