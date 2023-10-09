@@ -133,7 +133,7 @@ def classify_percentage(total_area):
 
 
 def count_images_in_directory(directory_path):
-    image_extensions = ['.jpg', '.png', '.jpeg']  # 필요하면 이미지 확장자 추가
+    image_extensions = ['.jpg', '.png', '.jpeg']
     return sum([len(files) for subdir, dirs, files in os.walk(directory_path) if
                 any(file.lower().endswith(ext) for file in files for ext in image_extensions)])
 
