@@ -20,6 +20,13 @@ transformers
 sentencepiece
 xformers
 
+# diffusers-xl model -------------------------------------
+diffusers --upgrade
+invisible_watermark
+transformers
+accelerate
+safetensors
+
 # logging -------------------------------------
 tensorboard>=2.4.1
 wandb
