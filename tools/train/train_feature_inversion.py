@@ -168,6 +168,11 @@ def train(rank, params):
     if params["model"]["feature"]["model_name"] == "ResNet50":
         feature_model = model_classes["feature"][params["model"]["feature"]["model_name"]](backbone="TV_RESNET50", dims=512, pool_param=3).to(device)
         feature_model.load_state_dict(torch.load(params["model"]["feature"]["feature_weight_path"]))
+    elif params["model"]["feature"]["model_name"] == "S2VC":
+        feature_model = model_classes["feature"][params["model"]["feature"]["model_name"]]["RESNET"].get_model(512).to(device)
+        state_dict = torch.load(params["model"]["feature"]["feature_weight_path"], map_location=device)
+        state_dict = {k.replace("base.", ""): v for k, v in state_dict.items()}
+        feature_model.load_state_dict(state_dict, strict=False)
     else:
         feature_model = model_classes["feature"][params["model"]["feature"]["model_name"]]().to(device)
         state_dict = torch.load(params["model"]["feature"]["feature_weight_path"], map_location=device)
