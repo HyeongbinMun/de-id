@@ -1,10 +1,10 @@
 infer:
-  device: 0
+  device: 1
   model:
     face:
       model_name: yolov7
       model_path: /workspace/model/weights/yolov7-w6-face.pt
-      device: 0
+      device: 1
       image_size: 1280
       conf_thresh: 0.1
       batch_size: 16
@@ -15,7 +15,7 @@ infer:
       input_size: 224
     inverter:
       model_name: MobileUNetInverter
-      model_path: ''
+      model_path: /dataset/feature_inversion_dna/20231008_012011_MobileUNetInverter/weights/epoch_000081.pth
       input_size: 224
 train:
   device: 1

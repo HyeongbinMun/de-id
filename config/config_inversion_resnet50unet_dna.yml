@@ -1,21 +1,21 @@
 infer:
-  device: 0
+  device: 2
   model:
     face:
       model_name: yolov7
       model_path: /workspace/model/weights/yolov7-w6-face.pt
-      device: 0
+      device: 2
       image_size: 1280
       conf_thresh: 0.1
       batch_size: 16
       iou_thresh: 0.5
     feature:
-      model_name: ResNet50
-      model_path: /workspace/model/weights/sscd_disc_mixup.torchvision.pt
+      model_name: MobileNet_AVG
+      model_path: /workspace/model/weights/mobilenet_avg_ep16_ckpt.pth
       input_size: 224
     inverter:
-      model_name: MobileUNetInverter
-      model_path: ''
+      model_name: ResNet50UNetInverter
+      model_path: /dataset/feature_inversion_dna/20231008_012013_ResNet50UNetInverter/weights/epoch_000081.pth
       input_size: 224
 train:
   device: 0
