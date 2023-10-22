@@ -47,6 +47,52 @@ services:
     tty: true
     environment:
       TZ: Asia/Seoul
+  stylegan2:
+    container_name: de-id_stylegan2
+    build:
+      context: ./
+      dockerfile: docker/dockerfile_stylegan2
+    runtime: nvidia
+    restart: always
+    ipc: "host"
+    env_file:
+      - "docker/dockerenv.env"
+    volumes:
+      - /media/mmlab/hdd:/hdd
+      - type: volume
+        source: dataset
+        target: /dataset
+        volume:
+          nocopy: true
+      - type: volume
+        source: mldisk_shared
+        target: /mldisk_shared
+        volume:
+          nocopy: true
+      - type: volume
+        source: mldisk_shared_
+        target: /mldisk_shared_
+        volume:
+          nocopy: true
+      - type: volume
+        source: mldisk2
+        target: /mldisk2
+        volume:
+          nocopy: true
+      - type: volume
+        source: mlsun
+        target: /mlsun
+        volume:
+          nocopy: true
+    ports:
+      - "8022:22"
+      - "8000:8000"
+      - "8001:8001"
+      - "8888:8888"
+    stdin_open: true
+    tty: true
+    environment:
+      TZ: Asia/Seoul
   disc:
     container_name: de-id_disc
     build:
