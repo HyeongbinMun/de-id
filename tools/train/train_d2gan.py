@@ -20,23 +20,23 @@ from utility.model.model_file import load_checkpoint, save_checkpoint
 from utility.model.region import crop_face, overlay_faces_on_image, save_gan_concat_text_image
 from config.models import model_classes
 from model.deid.dataset.dataset import GANFaceDetDataset
-from model.deid.cyclegan.utils.buffer import ReplayBuffer
-from model.deid.cyclegan.utils.lambdas import LambdaLR
-from model.deid.cyclegan.models.discriminator import Discriminator
-from model.deid.cyclegan.models.generator import GeneratorResNet
-from model.deid.cyclegan.models.layers import weights_init_normal
+from model.deid.gan.utils.buffer import ReplayBuffer
+from model.deid.gan.utils.lambdas import LambdaLR
+from model.deid.gan.models.discriminator import Discriminator
+from model.deid.gan.models.generator import GeneratorResNet
+from model.deid.gan.models.layers import weights_init_normal
 
 
 
 def train(rank, params):
-    if params["model"]["cyclegan"]["resume"]:
-        tmp_start_time_stamp = params["model"]["cyclegan"]["pretrained_model_dir"].split("/")[-3].split("_")
+    if params["model"]["d2gan"]["resume"]:
+        tmp_start_time_stamp = params["model"]["d2gan"]["pretrained_model_dir"].split("/")[-3].split("_")
         start_timestamp = f"{tmp_start_time_stamp[0]}_{tmp_start_time_stamp[1]}"
-        wandb_run_name = f"{start_timestamp}-{params['model']['cyclegan']['model_name']}"
+        wandb_run_name = f"{start_timestamp}-{params['model']['d2gan']['model_name']}"
         wandb.init(project=params['wandb']['project_name'], entity=params['wandb']['account'], name=wandb_run_name, resume=True, id=wandb_run_name)
     else:
         start_timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        wandb_run_name = f"{start_timestamp}-{params['model']['cyclegan']['model_name']}"
+        wandb_run_name = f"{start_timestamp}-{params['model']['d2gan']['model_name']}"
         wandb.init(project=params['wandb']['project_name'], entity=params['wandb']['account'], name=wandb_run_name)
 
     batch_size = params["batch_size"]
@@ -45,11 +45,11 @@ def train(rank, params):
     valid_epoch = params["valid_epoch"]
     decay_epoch = params["decay_epoch"]
     learning_rate = params["learning_rate"]
-    b1 = params["model"]["cyclegan"]["b1"]
-    b2 = params["model"]["cyclegan"]["b2"]
-    image_size = params["model"]["cyclegan"]["input_size"]
-    channels = params["model"]["cyclegan"]["channels"]
-    residual_block_number = params["model"]["cyclegan"]["residual_block_number"]
+    b1 = params["model"]["d2gan"]["b1"]
+    b2 = params["model"]["d2gan"]["b2"]
+    image_size = params["model"]["d2gan"]["input_size"]
+    channels = params["model"]["d2gan"]["channels"]
+    residual_block_number = params["model"]["d2gan"]["residual_block_number"]
     lambda_cycle = params["lambda"]["lambda_cycle"]
     lambda_identity = params["lambda"]["lambda_identity"]
     lambda_full_image = params["lambda"]["lambda_full_image"]
@@ -68,7 +68,7 @@ def train(rank, params):
     test_image_real_dir, test_image_deid_dir, test_label_dir = os.path.join(image_orin_dir, "test"), os.path.join(image_deid_dir, "test"), os.path.join(label_dir, "test")
 
     save_dir = params["save_dir"]
-    model_dir = os.path.join(save_dir, start_timestamp + "_" + params["model"]["cyclegan"]["model_name"])
+    model_dir = os.path.join(save_dir, start_timestamp + "_" + params["model"]["d2gan"]["model_name"])
     model_save_dir = os.path.join(model_dir, "weights")
     generated_images_dir = os.path.join(model_dir, 'generated_images')
     if not os.path.exists(model_save_dir):
@@ -135,9 +135,9 @@ def train(rank, params):
     lr_scheduler_discriminator_orin_deid = torch.optim.lr_scheduler.LambdaLR(optimizer_discriminator_orin_deid, lr_lambda=LambdaLR(end_epoch, start_epoch, decay_epoch).step)
 
     # Model Loading or Weight Initialization
-    if params["model"]["cyclegan"]["resume"]:
+    if params["model"]["d2gan"]["resume"]:
         # Load pretrained models
-        pretrained_model_dir = params["model"]["cyclegan"]["pretrained_model_dir"]
+        pretrained_model_dir = params["model"]["d2gan"]["pretrained_model_dir"]
         model_names = os.listdir(pretrained_model_dir)
         generator_orin2deid_model_name = sorted([item for item in model_names if "generator_orin2deid" in item])[-1]
         discriminator_real_fake_model_name = sorted([item for item in model_names if "discriminator_real_fake" in item])[-1]
@@ -171,7 +171,7 @@ def train(rank, params):
     print(logging.s(f"    Valid epoch: {valid_epoch}"))
     print(logging.s(f"    Model:"))
     print(logging.s(f"    - Feature extractor: {params['model']['feature']['model_name']}"))
-    print(logging.s(f"    - CycleGAN         : {params['model']['cyclegan']['model_name']}"))
+    print(logging.s(f"    - D2GAN         : {params['model']['d2gan']['model_name']}"))
     print(logging.s(f"       b1                   : {b1}"))
     print(logging.s(f"       b2                   : {b2}"))
     print(logging.s(f"       input size           : {image_size}"))
@@ -182,16 +182,16 @@ def train(rank, params):
     print(logging.s(f"- Lambda Identity      : {lambda_identity}"))
     print(logging.s(f"- Lambda full image    : {lambda_full_image}"))
     print(logging.s(f"Task Information"))
-    print(logging.s(f"- Task ID              : {start_timestamp + '_' + params['model']['cyclegan']['model_name']}"))
+    print(logging.s(f"- Task ID              : {start_timestamp + '_' + params['model']['d2gan']['model_name']}"))
     print(logging.s(f"- Model directory      : {model_dir}"))
-    print(logging.s(f"- Resume               : {params['model']['cyclegan']['resume']}"))
-    if params['model']['cyclegan']['resume']:
-        pretrained_model_dir = params["model"]["cyclegan"]["pretrained_model_dir"]
+    print(logging.s(f"- Resume               : {params['model']['d2gan']['resume']}"))
+    if params['model']['d2gan']['resume']:
+        pretrained_model_dir = params["model"]["d2gan"]["pretrained_model_dir"]
         model_names = os.listdir(pretrained_model_dir)
         generator_orin2deid_model_name = sorted([item for item in model_names if "generator_orin2deid" in item])[-1]
         discriminator_orin_model_name = sorted([item for item in model_names if "discriminator_orin" in item])[-1]
         discriminator_deid_model_name = sorted([item for item in model_names if "discriminator_deid" in item])[-1]
-        print(logging.s(f"- Pretrained model directory: {params['model']['cyclegan']['pretrained_model_dir']}"))
+        print(logging.s(f"- Pretrained model directory: {params['model']['d2gan']['pretrained_model_dir']}"))
         print(logging.s(f"   Generator Orin2Deid: {generator_orin2deid_model_name}"))
         print(logging.s(f"   Discriminator Orin: {discriminator_orin_model_name}"))
         print(logging.s(f"   Discriminator Deid: {discriminator_deid_model_name}"))
@@ -367,15 +367,13 @@ def validate(
     total_loss_discriminator_realfake = 0.0
     total_loss_discriminator_orindeid = 0.0
 
-    valid_fake_deid_buffer = ReplayBuffer()
-
     with torch.no_grad():
         progress_bar = tqdm(enumerate(valid_loader), total=len(valid_loader))
         for batch_idx, (images_real_path, image_deid_path, label_path, images_orin, images_deid, boxes_list) in progress_bar:
             images_orin = images_orin.clone().to(device)
             images_deid = images_deid.clone().to(device)
 
-            image_size = params["model"]["cyclegan"]["input_size"]
+            image_size = params["model"]["d2gan"]["input_size"]
 
             batch_real_orin_faces = []
             batch_real_deid_faces = []
