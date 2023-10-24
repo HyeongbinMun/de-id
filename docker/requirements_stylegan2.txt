@@ -1,0 +1,42 @@
+# base ----------------------------------------
+matplotlib>=3.2.2
+numpy>=1.18.5
+opencv-python>=4.1.2
+Pillow
+PyYAML>=5.3.1
+scipy>=1.4.1
+tqdm>=4.41.0
+PyYaml==6.0.1
+ruamel.yaml==0.17.32
+
+# logging -------------------------------------
+tensorboard>=2.4.1
+wandb
+
+# plotting ------------------------------------
+seaborn>=0.11.0
+pandas
+
+# extras --------------------------------------
+thop  # FLOPS computation
+pycocotools>=2.0  # COCO mAP
+
+# eval ----------------------------------------
+scikit-image==0.18.3
+
+# sscd
+classy_vision
+
+# s2vs
+ffmpeg-python
+augly
+h5py
+einops
+timm
+typer
+imageio
+
+# stylegan2
+lmdb
+ninja
+

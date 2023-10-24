@@ -26,7 +26,7 @@ train:
   valid_epoch: 5
   learning_rate: 0.0002
   decay_epoch: 100
-  dataset_dir: /dataset/widerface/deepfake_resize
+  dataset_dir: /dataset/widerface/
   save_dir: /dataset/cyclegan_widerface/
   model:
     feature:
@@ -34,7 +34,7 @@ train:
       feature_weight_path: /workspace/model/weights/sscd_disc_mixup.torchvision.pt
       input_size: 224
     stylegan2:
-      model_name: ResNetCycleGAN
+      model_name: StyleGAN2
       resume: false
       pretrained_model_dir: ''
       n_sample: 64
