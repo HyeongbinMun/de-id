@@ -1,0 +1,47 @@
+infer:
+  device: 0
+  model:
+    face:
+      model_name: yolov7
+      model_path: /workspace/model/weights/yolov7-w6-face.pt
+      device: 0
+      image_size: 1280
+      conf_thresh: 0.1
+      batch_size: 16
+      iou_thresh: 0.5
+    feature:
+      model_name: S2VC
+      model_path: ""
+      input_size: 224
+    inverter:
+      model_name: ResNet50UNetInverter
+      model_path: ''
+      input_size: 224
+train:
+  device: 0
+  master_addr: localhost
+  master_port: "8001"
+  batch_size: 128
+  learning_rate: 0.0001
+  epoch: 100
+  dataset_dir: /dataset/widerface/inversion/
+  save_dir: /dataset/feature_inversion_widerface_vcd/
+  decay_epoch: 50
+  valid_epoch: 5
+  model:
+    feature:
+      model_name: S2VC
+      feature_weight_path: /workspace/model/weights/pca_resnet50_vcdb_1M.pth
+      input_size: 224
+    inverter:
+      model_name: ResNet50UNetInverter
+      input_size: 224
+      resume: false
+      pretrained_model_path: ''
+  lambda:
+    feature_mse: 0.1
+    feature_cosine: 0.7
+    region_mse: 0.2
+  wandb:
+    project_name: FeatureInversion
+    account: jinhasong
