@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from model.deid.cyclegan.utils.lambdas import LambdaLR
+from model.deid.gan.utils.lambdas import LambdaLR
 from utility.model.region import crop_face, overlay_faces_on_image, save_gan_concat_text_image
 from utility.params import load_params_yml
 from utility import logging
