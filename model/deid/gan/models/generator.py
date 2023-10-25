@@ -3,7 +3,7 @@ import sys
 import torch.nn as nn
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from model.deid.cyclegan.models.layers import ResidualBlock
+from model.deid.gan.models.layers import ResidualBlock
 
 
 class GeneratorResNet(nn.Module):
