@@ -15,7 +15,7 @@ infer:
       input_size: 224
     inverter:
       model_name: ResNet50UNetInverter
-      model_path: /dataset/feature_inversion_dna/20231008_012013_ResNet50UNetInverter/weights/epoch_000081.pth
+      model_path: /workspace/model/weights/feature_inversion_resnet50_dna.pth
       input_size: 224
 train:
   device: 0
