@@ -205,8 +205,8 @@ def train(rank, params):
             batch_faces_boxes = []
 
             for i, boxes in enumerate(boxes_list):
-                real_orin_faces, faces_index, face_boxes = crop_face(images_orin, boxes, i)
-                real_deid_faces, __ , __ = crop_face(images_deid, boxes, i)
+                real_orin_faces, faces_index, face_boxes = crop_face(images_orin, boxes, i, slice=True)
+                real_deid_faces, __ , __ = crop_face(images_deid, boxes, i, slice=True)
                 batch_real_orin_faces.extend(real_orin_faces)
                 batch_real_deid_faces.extend(real_deid_faces)
                 batch_images_indices.extend(faces_index)
