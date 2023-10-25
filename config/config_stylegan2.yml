@@ -21,13 +21,13 @@ train:
   device: 0
   master_addr: localhost
   master_port: "8001"
-  batch_size: 32
+  batch_size: 2
   epoch: 200
   valid_epoch: 5
   learning_rate: 0.0002
   decay_epoch: 100
-  dataset_dir: /dataset/widerface/
-  save_dir: /dataset/cyclegan_widerface/
+  dataset_dir: /dataset/widerface/deepfake_resize
+  save_dir: /dataset/stylegan2_icd/
   model:
     feature:
       model_name: ResNet50
@@ -35,8 +35,8 @@ train:
       input_size: 224
     stylegan2:
       model_name: StyleGAN2
-      resume: false
-      pretrained_model_dir: ''
+      resume: true
+      pretrained_model_path: /workspace/model/weights/550000.pt
       n_sample: 64
       input_size: 256
       r1: 10
@@ -54,9 +54,9 @@ train:
       latent: 512
       n_mlp: 8
   lambda:
-    lambda_cycle: 5.0
-    lambda_identity: 10.0
-    lambda_full_image: 10.0
+    lambda_generator: 1.0
+    lambda_deid: 1.0
+    lambda_full_image: 1.0
   wandb:
     project_name: CycleGAN
     account: jinhasong
