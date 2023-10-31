@@ -167,7 +167,11 @@ python3 tools/evel/eval_deid_inversion.py \
     * ```--save``` argument를 사용해야 저장
 ##### 결과 출력
 ```shell
-
+	        10% 	30% 	50% 	70% 	70above	average
+-----------------------------------------------------------
+ssim    	0.0282	0.0260	0.0245	0.0243	0.0163	0.0280
+psnr    	7.4593	7.1601	6.7994	6.0713	5.9969	7.4217
+image sim	0.9995	0.9953	0.9878	0.9856	1.0000	0.9990
 ```
 #### De-identification Model using D2GAN
 ```shell
