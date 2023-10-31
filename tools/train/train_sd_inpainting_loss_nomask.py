@@ -5,8 +5,8 @@ import math
 import os
 import wandb
 from pathlib import Path
-
 import torch
+
 import torch.nn.functional as F
 import torch.utils.checkpoint
 from accelerate import Accelerator
@@ -27,23 +27,39 @@ from diffusers import (
 )
 from diffusers.optimization import get_scheduler
 from diffusers.utils import check_min_version
+from config.models import model_classes
 
 from model.deid.diffusers.utils.masked import prepare_mask_and_masked_image, random_mask
 from model.deid.diffusers.utils.dataset import DreamBoothDataset, PromptDataset
+from model.deid.diffusers.utils.utils import remove_alpha_channel
+
 
 # Will error if the minimal version of diffusers is not installed. Remove at your own risks.
 check_min_version("0.13.0.dev0")
 
 logger = get_logger(__name__)
-
 def parse_args():
     parser = argparse.ArgumentParser(description="Simple example of a training script.")
     parser.add_argument(
         "--pretrained_model_name_or_path",
         type=str,
-        default="runwayml/stable-diffusion-inpainting",
+        default=None,
         required=True,
         help="Path to pretrained model or model identifier from huggingface.co/models.",
+    )
+    parser.add_argument(
+        "--feature_model_name",
+        type=str,
+        default="ResNet50",
+        required=True,
+        help="feature model ResNet50 or MobileNet_AVG.",
+    )
+    parser.add_argument(
+        "--feature_model_path",
+        type=str,
+        default="/workspace/model/weight/sscd_disc_mixup.torchvision.pt",
+        required=True,
+        help="feature model path.",
     )
     parser.add_argument(
         "--tokenizer_name",
@@ -54,27 +70,27 @@ def parse_args():
     parser.add_argument(
         "--instance_data_dir",
         type=str,
-        default="/data/face/instance",
+        default=None,
         required=True,
         help="A folder containing the training data of instance images.",
     )
     parser.add_argument(
         "--class_data_dir",
         type=str,
-        default="/data/face/taylor_hill",
+        default=None,
         required=False,
         help="A folder containing the training data of class images.",
     )
     parser.add_argument(
         "--instance_prompt",
         type=str,
-        default="a photo of tayor hill face",
+        default=None,
         help="The prompt with identifier specifying the instance",
     )
     parser.add_argument(
         "--class_prompt",
         type=str,
-        default="a photo of face",
+        default=None,
         help="The prompt to specify images in the same class as provided instance images.",
     )
     parser.add_argument(
@@ -96,7 +112,7 @@ def parse_args():
     parser.add_argument(
         "--output_dir",
         type=str,
-        default="/data/face/model/0918_ver2",
+        default="text-inversion-model",
         help="The output directory where the model predictions and checkpoints will be written.",
     )
     parser.add_argument("--seed", type=int, default=None, help="A seed for reproducible training.")
@@ -129,7 +145,7 @@ def parse_args():
     parser.add_argument(
         "--max_train_steps",
         type=int,
-        default=1,
+        default=None,
         help="Total number of training steps to perform.  If provided, overrides num_train_epochs.",
     )
     parser.add_argument(
@@ -344,6 +360,21 @@ def main():
     text_encoder = CLIPTextModel.from_pretrained(args.pretrained_model_name_or_path, subfolder="text_encoder")
     vae = AutoencoderKL.from_pretrained(args.pretrained_model_name_or_path, subfolder="vae")
     unet = UNet2DConditionModel.from_pretrained(args.pretrained_model_name_or_path, subfolder="unet")
+
+    # Load feature models
+    if args.feature_model_name == "ResNet50":
+        feature_model = model_classes["feature"][args.feature_model_name](backbone="TV_RESNET50", dims=512, pool_param=3).to(accelerator.device)
+        feature_model.load_state_dict(torch.load(args.feature_model_path))
+    else:
+        feature_model = model_classes["feature"][args.feature_model_name]().to(accelerator.device)
+        state_dict = torch.load(args.feature_model_path, map_location=accelerator.device)
+        state_dict = {k.replace("base.", ""): v for k, v in state_dict.items()}
+        feature_model.load_state_dict(state_dict, strict=False)
+    feature_model.eval()
+    criterion_image_feature_score = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
+
+    if accelerator.device == 'cuda':
+        criterion_image_feature_score.cuda()
 
     vae.requires_grad_(False)
     if not args.train_text_encoder:
@@ -594,20 +625,40 @@ def main():
                 if args.with_prior_preservation:
                     # Chunk the noise and noise_pred into two parts and compute the loss on each part separately.
                     noise_pred, noise_pred_prior = torch.chunk(noise_pred, 2, dim=0)
+                    noise_pred_3ch = remove_alpha_channel(noise_pred)
+                    noise_pred_feature = feature_model(noise_pred_3ch)
+                    noise_pred_prior_3ch = remove_alpha_channel(noise_pred_prior)
+                    noise_pred_prior_feature = feature_model(noise_pred_prior_3ch)
+
                     target, target_prior = torch.chunk(target, 2, dim=0)
+                    target_3ch = remove_alpha_channel(target)
+                    target_feature = feature_model(target_3ch)
+                    target_prior_3ch = remove_alpha_channel(target_prior)
+                    target_prior_feature = feature_model(target_prior_3ch)
 
                     # Compute instance loss
-                    loss = F.mse_loss(noise_pred.float(), target.float(), reduction="none").mean([1, 2, 3]).mean()
+                    mse_loss = F.mse_loss(noise_pred.float(), target.float(), reduction="none").mean([1, 2, 3]).mean()
+                    cos_feature_loss = 1 - criterion_image_feature_score(noise_pred_feature, target_feature).mean()
 
                     # Compute prior loss
-                    prior_loss = F.mse_loss(noise_pred_prior.float(), target_prior.float(), reduction="mean")
+                    mse_prior_loss = F.mse_loss(noise_pred_prior.float(), target_prior.float(), reduction="mean")
+                    cos_prior_feature_loss = 1 - criterion_image_feature_score(noise_pred_prior_feature,
+                                                                               target_prior_feature).mean()
 
                     # Add the prior loss to the instance loss.
-                    loss = loss + args.prior_loss_weight * prior_loss
+                    total_loss = mse_loss + cos_feature_loss + args.prior_loss_weight * mse_prior_loss + args.prior_loss_weight * cos_prior_feature_loss
                 else:
-                    loss = F.mse_loss(noise_pred.float(), target.float(), reduction="mean")
+                    noise_pred_3ch = remove_alpha_channel(noise_pred)
+                    target_3ch = remove_alpha_channel(target)
+                    noise_pred_feature = feature_model(noise_pred_3ch)
+                    target_feature = feature_model(target_3ch)
 
-                accelerator.backward(loss)
+                    # Compute instance loss
+                    mse_loss = F.mse_loss(noise_pred.float(), target.float(), reduction="none")
+                    cos_feature_loss = 1 - criterion_image_feature_score(noise_pred_feature, target_feature).mean()
+                    total_loss = mse_loss + cos_feature_loss
+
+                accelerator.backward(total_loss)
                 if accelerator.sync_gradients:
                     params_to_clip = (
                         itertools.chain(unet.parameters(), text_encoder.parameters())
@@ -631,7 +682,10 @@ def main():
                         logger.info(f"Saved state to {save_path}")
                         wandb.save(save_path)
 
-            logs = {"loss": loss.detach().item(), "lr": lr_scheduler.get_last_lr()[0]}
+            logs = {"mse_loss": mse_loss.detach().item(),
+                    "cos_loss": cos_feature_loss.detach().item(),
+                    "total_loss": total_loss.detach().item(),
+                    "lr": lr_scheduler.get_last_lr()[0]}
             progress_bar.set_postfix(**logs)
             accelerator.log(logs, step=global_step)
             wandb.log(logs, step=global_step)
