@@ -183,16 +183,25 @@ if __name__ == '__main__':
     avg_psnr = total_psnr / image_count
     avg_cossim = total_cossim / image_count
 
-    print(f"Average Face Image SSIM: {avg_ssim:.4f}")
-    print(f"Average Face Image PSNR: {avg_psnr:.4f}")
-    print(f"Average Full Image Cosine Similarity: {avg_cossim:.4f}")
+    categories = ["10%", "30%", "50%", "70%", "70above", "average"]
+    print("         \t".join([""] + categories))
+    ssim_values = [
+        metrics_by_bbox_ratio[cat]["ssim"] / metrics_by_bbox_ratio[cat]["count"] if metrics_by_bbox_ratio[cat]["count"] > 0 else "#" for cat in
+        ["10", "30", "50", "70", "70above"]
+    ]
+    print("-----------------------------------------------------------")
+    ssim_values.append(avg_ssim)
+    print("\t".join(["ssim     "] + [f"{val:.4f}" if isinstance(val, float) else "#" for val in ssim_values]))
 
-    for category, metrics in metrics_by_bbox_ratio.items():
-        if metrics["count"] > 0:
-            avg_ssim = metrics["ssim"] / metrics["count"]
-            avg_psnr = metrics["psnr"] / metrics["count"]
-            avg_cossim = metrics["cossim"] / metrics["count"]
-            print(f"\nCategory: {category}% BBox Ratio(image count: {metrics['count']})")
-            print(f"Average SSIM: {avg_ssim:.4f}")
-            print(f"Average PSNR: {avg_psnr:.4f}")
-            print(f"Average Full Image Similarity(Cosine Similarity: {avg_cossim:.4f}")
+    psnr_values = [
+        metrics_by_bbox_ratio[cat]["psnr"] / metrics_by_bbox_ratio[cat]["count"] if metrics_by_bbox_ratio[cat]["count"] > 0 else "#" for cat in
+        ["10", "30", "50", "70", "70above"]
+    ]
+    psnr_values.append(avg_psnr)
+    print("\t".join(["psnr     "] + [f"{val:.4f}" if isinstance(val, float) else "#" for val in psnr_values]))
+
+    full_image_similarity_values = [
+        metrics_by_bbox_ratio[cat]["cossim"] / metrics_by_bbox_ratio[cat]["count"] if metrics_by_bbox_ratio[cat]["count"] > 0 else "#" for cat in ["10", "30", "50", "70", "70above"]
+    ]
+    full_image_similarity_values.append(avg_cossim)
+    print("\t".join(["image sim"] + [f"{val:.4f}" if isinstance(val, float) else "#" for val in full_image_similarity_values]))

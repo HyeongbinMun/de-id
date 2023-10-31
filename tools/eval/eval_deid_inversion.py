@@ -180,21 +180,21 @@ if __name__ == '__main__':
     avg_cossim = total_cossim / image_count
 
     categories = ["10%", "30%", "50%", "70%", "70above", "average"]
-    print("        \t".join([""] + categories))
+    print("         \t".join([""] + categories))
     ssim_values = [
         metrics_by_bbox_ratio[cat]["ssim"] / metrics_by_bbox_ratio[cat]["count"] if metrics_by_bbox_ratio[cat]["count"] > 0 else "#" for cat in
         ["10", "30", "50", "70", "70above"]
     ]
     print("-----------------------------------------------------------")
     ssim_values.append(avg_ssim)
-    print("\t".join(["ssim    "] + [f"{val:.4f}" if isinstance(val, float) else "#" for val in ssim_values]))
+    print("\t".join(["ssim     "] + [f"{val:.4f}" if isinstance(val, float) else "#" for val in ssim_values]))
 
     psnr_values = [
         metrics_by_bbox_ratio[cat]["psnr"] / metrics_by_bbox_ratio[cat]["count"] if metrics_by_bbox_ratio[cat]["count"] > 0 else "#" for cat in
         ["10", "30", "50", "70", "70above"]
     ]
     psnr_values.append(avg_psnr)
-    print("\t".join(["psnr    "] + [f"{val:.4f}" if isinstance(val, float) else "#" for val in psnr_values]))
+    print("\t".join(["psnr     "] + [f"{val:.4f}" if isinstance(val, float) else "#" for val in psnr_values]))
 
     full_image_similarity_values = [
         metrics_by_bbox_ratio[cat]["cossim"] / metrics_by_bbox_ratio[cat]["count"] if metrics_by_bbox_ratio[cat]["count"] > 0 else "#" for cat in ["10", "30", "50", "70", "70above"]
