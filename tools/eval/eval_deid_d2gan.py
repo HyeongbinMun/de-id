@@ -42,7 +42,7 @@ if __name__ == '__main__':
     test_image_dir, test_label_dir = os.path.join(image_dir), os.path.join(label_dir)
     test_dataset = FaceDetDataset(test_image_dir, test_label_dir)
     test_loader = DataLoader(test_dataset,
-                             batch_size=8,
+                             batch_size=2,
                              shuffle=False,
                              num_workers=1,
                              collate_fn=FaceDetDataset.collate_fn)
@@ -99,9 +99,12 @@ if __name__ == '__main__':
         "70": {"ssim": 0, "psnr": 0, "cossim": 0, "count": 0},
         "70above": {"ssim": 0, "psnr": 0, "cossim": 0, "count": 0},
     }
+    for ratio in metrics_by_bbox_ratio.keys():
+        os.makedirs(os.path.join(output_dir, ratio), exist_ok=True)
+
     image_count = 0
     progress_bar = tqdm(enumerate(test_loader), total=len(test_loader))
-    for batch_idx, (image_paths, label_paths, images, boxes_list) in progress_bar:
+    for batch_idx, (image_paths, label_paths, images, boxes_list, image_size) in progress_bar:
         images = images.clone().to(device)
 
         batch_orin_faces = []
@@ -124,11 +127,6 @@ if __name__ == '__main__':
             resized_origin_images = F.interpolate(images.clone(), size=(feature_model_input_size, feature_model_input_size))
             resized_deid_images = F.interpolate(deid_full_images.clone(), size=(feature_model_input_size, feature_model_input_size))
 
-            # for i, (image_path, deid_full_image) in enumerate(zip(image_paths, deid_full_images)):
-            #     generated_image_path = os.path.join(option.output_dir, image_path.split("/")[-1])
-            #     if not os.path.exists(option.output_dir):
-            #         os.makedirs(option.output_dir)
-            #     save_tensort2image(deid_full_image, generated_image_path)
             orin_full_feature = feature_model(resized_origin_images)
             deid_full_feature = feature_model(resized_deid_images)
 
@@ -170,6 +168,9 @@ if __name__ == '__main__':
                     metrics_by_bbox_ratio[category]["psnr"] += single_orin_deid_psnr
                     metrics_by_bbox_ratio[category]["cossim"] += single_orin_deid_cossim
                     metrics_by_bbox_ratio[category]["count"] += 1
+
+                    image_path = os.path.join(output_dir, category, image_paths[b].split("/")[-1])
+                    save_tensort2image(deid_full_images[b], image_path)
                     image_count += 1
                 except:
                     pass

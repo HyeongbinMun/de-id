@@ -17,15 +17,16 @@ import torchvision.transforms as transforms
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from config.models import model_classes
 from utility.params import load_params_yml
+from utility.image.file import save_tensort2image
 from utility.model.region import crop_face, overlay_faces_on_image
 from utility.image.dataset import compute_total_area, classify_percentage
 from model.deid.dataset.dataset import FaceDetDataset
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="object detection model batch inference test script")
+    parser = argparse.ArgumentParser(description="")
     parser.add_argument("--config", type=str, default="/workspace/config/config_inversion_mobileunet_icd.yml", help="invertsion parameter file path")
-    parser.add_argument("--dataset_dir", type=str, default="/dataset/widerface/inversion/", help="test image directory path")
-    parser.add_argument("--output_dir", type=str, default="/workspace/output/", help="image path")
+    parser.add_argument("--dataset_dir", type=str, default="/dataset/widerface/eval/", help="test image directory path")
+    parser.add_argument("--output_dir", type=str, default="/dataset/widerface/result/mobileunet", help="image path")
     option = parser.parse_known_args()[0]
 
     config = load_params_yml(option.config)['infer']
@@ -38,7 +39,7 @@ if __name__ == '__main__':
 
     image_dir = os.path.join(dataset_dir, "images")
     label_dir = os.path.join(dataset_dir, "labels")
-    test_image_dir, test_label_dir = os.path.join(image_dir, "test"), os.path.join(label_dir, "test")
+    test_image_dir, test_label_dir = os.path.join(image_dir), os.path.join(label_dir)
     test_dataset = FaceDetDataset(test_image_dir, test_label_dir)
     test_loader = DataLoader(test_dataset,
                              batch_size=16,
@@ -95,9 +96,12 @@ if __name__ == '__main__':
         "70": {"ssim": 0, "psnr": 0, "cossim": 0, "count": 0},
         "70above": {"ssim": 0, "psnr": 0, "cossim": 0, "count": 0},
     }
+    for ratio in metrics_by_bbox_ratio.keys():
+        os.makedirs(os.path.join(output_dir, ratio), exist_ok=True)
+
     image_count = 0
     progress_bar = tqdm(enumerate(test_loader), total=len(test_loader))
-    for batch_idx, (image_path, label_path, images, boxes_list) in progress_bar:
+    for batch_idx, (image_paths, label_paths, images, boxes_list, image_size) in progress_bar:
         images = images.clone().to(device)
 
         batch_orin_faces = []
@@ -160,6 +164,9 @@ if __name__ == '__main__':
                     metrics_by_bbox_ratio[category]["psnr"] += single_orin_deid_psnr
                     metrics_by_bbox_ratio[category]["cossim"] += single_orin_deid_cossim
                     metrics_by_bbox_ratio[category]["count"] += 1
+
+                    image_path = os.path.join(output_dir, category, image_paths[b].split("/")[-1])
+                    save_tensort2image(deid_full_images[b], image_path)
                     image_count += 1
                 except:
                     pass
