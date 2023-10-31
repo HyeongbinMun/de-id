@@ -1,7 +1,7 @@
 
 import torch
 
-from model.vcd.vcd.models.frame import L2N
+from model.vcd.vcd.models.frame import L2N, BaseModel
 
 SEGMENT_MODELS = ['Segment_MaxPool', 'Segment_AvgPool']
 
