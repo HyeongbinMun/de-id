@@ -24,9 +24,9 @@ from model.deid.dataset.dataset import FaceDetDataset
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="")
-    parser.add_argument("--config", type=str, default="/workspace/config/config_inversion_mobileunet_icd.yml", help="invertsion parameter file path")
-    parser.add_argument("--dataset_dir", type=str, default="/dataset/widerface/eval/", help="test image directory path")
-    parser.add_argument("--output_dir", type=str, default="/dataset/widerface/result/mobileunet", help="image path")
+    parser.add_argument("--config", type=str, default="/workspace/config/config_inversion_mobileunet_dna.yml", help="invertsion parameter file path")
+    parser.add_argument("--dataset_dir", type=str, default="/dataset/dna_frame/eval/", help="test image directory path")
+    parser.add_argument("--output_dir", type=str, default="/dataset/result/mobileunet", help="image path")
     parser.add_argument('--save', action='store_true', help='If you want to save result image, please give this argument.')
 
     option = parser.parse_known_args()[0]

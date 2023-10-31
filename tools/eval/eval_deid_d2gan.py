@@ -25,14 +25,16 @@ from model.deid.dataset.dataset import FaceDetDataset
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="")
     parser.add_argument("--config", type=str, default="/workspace/config/config_d2gan_dna.yml", help="d2gan parameter file path")
-    parser.add_argument("--dataset_dir", type=str, default="/dataset/dna/eval/", help="test image directory path")
-    parser.add_argument("--output_dir", type=str, default="/mldisk2/deid/dna/d2gan/generated_images", help="image path")
+    parser.add_argument("--dataset_dir", type=str, default="/dataset/dna_frame/eval/", help="test image directory path")
+    parser.add_argument("--output_dir", type=str, default="/dataset/result/d2gan", help="image path")
+    parser.add_argument('--save', action='store_true', help='If you want to save result image, please give this argument.')
     option = parser.parse_known_args()[0]
 
     config = load_params_yml(option.config)['infer']
     model_config = config["model"]
     dataset_dir = option.dataset_dir
     output_dir = option.output_dir
+    is_result_save = option.save
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     torch.cuda.set_device(config["device"])
@@ -170,7 +172,8 @@ if __name__ == '__main__':
                     metrics_by_bbox_ratio[category]["count"] += 1
 
                     image_path = os.path.join(output_dir, category, image_paths[b].split("/")[-1])
-                    save_tensort2image(deid_full_images[b], image_path)
+                    if is_result_save:
+                        save_tensort2image(deid_full_images[b], image_path)
                     image_count += 1
                 except:
                     pass
