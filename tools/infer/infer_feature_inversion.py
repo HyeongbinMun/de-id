@@ -45,12 +45,14 @@ if __name__ == '__main__':
     os.makedirs(tmp_images_dir, exist_ok=True)
     os.makedirs(tmp_labels_dir, exist_ok=True)
 
-    face_params = load_params_yml(face_config)["infer"]
-    inverteion_model_config = load_params_yml(inverter_config)["infer"]["model"]["inverter"]
+    model_config = load_params_yml(inverter_config)["infer"]
+    face_params = model_config["model"]["face"]
+    inverteion_model_config = model_config["model"]["inverter"]
 
     face_model = YOLOv7Face(face_params)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    torch.cuda.set_device(model_config["device"])
 
     checkpoint = torch.load(inverteion_model_config["model_path"], map_location=device)
     inversion_model = model_classes["deid"][inverteion_model_config["model_name"]]()
