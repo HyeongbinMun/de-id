@@ -1,10 +1,10 @@
 infer:
-  device: 1
+  device: 0
   model:
     face:
       model_name: yolov7
       model_path: /workspace/model/weights/yolov7-w6-face.pt
-      device: 1
+      device: 0
       image_size: 1280
       conf_thresh: 0.1
       batch_size: 16
@@ -18,7 +18,7 @@ infer:
       model_path: /workspace/model/weights/feature_inversion_mobileunet_dna.pth
       input_size: 224
 train:
-  device: 1
+  device: 0
   master_addr: localhost
   master_port: "8001"
   batch_size: 128
