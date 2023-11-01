@@ -106,16 +106,16 @@ docker attach de-id_model
         <tr>
             <td rowspan="13">정제 데이터 정보</td>
             <td colspan="2">얼굴 포함 이미지 수</td>
-            <td>340,609</td>
+            <td>258,354</td>
         </tr>
         <tr>
             <td colspan="2">총 얼굴 bounding box 수</td>
-            <td>397,811</td>
+            <td>309,946</td>
         </tr>
         <tr>
             <td rowspan="8">이미지에서 얼굴<br> 영역이 차지하는<br> 비율</td>
             <td>최대</td>
-            <td>90.56%</td>
+            <td>79.76%</td>
         </tr>
         <tr>
             <td>최소</td>
@@ -123,27 +123,27 @@ docker attach de-id_model
         </tr>
         <tr>
             <td>평균</td>
-            <td>5.86</td>
+            <td>4.75%</td>
         </tr>
         <tr>
             <td>0~10%</td>
-            <td>238,488</td>
+            <td>217,167</td>
         </tr>
         <tr>
             <td>10~30%</td>
-            <td>62,697</td>
+            <td>36,440</td>
         </tr>
         <tr>
             <td>30~50%</td>
-            <td>8,907</td>
+            <td>4,559</td>
         </tr>
         <tr>
             <td>50~70%</td>
-            <td>466</td>
+            <td>172</td>
         </tr>
         <tr>
             <td>70%이상</td>
-            <td>50</td>
+            <td>17</td>
         </tr>
     </tbody>
 </table>
@@ -192,5 +192,9 @@ python3 tools/evel/eval_deid_d2gan.py \
     * ```--save``` argument를 사용해야 저장
 ##### 결과 출력
 ```shell
-
+	        10% 	30% 	50% 	70% 	70above	average
+-----------------------------------------------------------
+ssim    	0.0282	0.0260	0.0245	0.0243	0.0163	0.0280
+psnr    	4.4593	4.1601	4.7994	4.0713	4.9969	4.4217
+image sim	0.9995	0.9953	0.9878	0.9856	1.0000	0.9990
 ```
