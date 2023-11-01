@@ -153,9 +153,10 @@ docker attach de-id_model
 ```shell
 # in /workspace
 python3 tools/evel/eval_deid_inversion.py \
-    --config=config/config_inversion_mobileunet_dna.yml
-    --dataset_dir=/dataset/dna_frame/
-    --output_dir=/dataset/result/mobileunet
+    --config=config/config_inversion_mobileunet_dna.yml \
+    --batch_size=16 \
+    --dataset_dir=/dataset/dna_frame/ \
+    --output_dir=/dataset/result/mobileunet \
     --save
 ```
 * Arguments
@@ -177,9 +178,10 @@ image sim	0.9995	0.9953	0.9878	0.9856	1.0000	0.9990
 ```shell
 # in /workspace
 python3 tools/evel/eval_deid_d2gan.py \
-    --config=config/config_d2gan_dna.yml
-    --dataset_dir=/dataset/dna_frame/
-    --output_dir=/dataset/result/d2gan
+    --config=config/config_d2gan_dna.yml \
+    --batch_size=16 \
+    --dataset_dir=/dataset/dna_frame/ \
+    --output_dir=/dataset/result/d2gan \
     --save
 ```
 * Arguments

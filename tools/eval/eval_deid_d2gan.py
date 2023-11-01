@@ -25,6 +25,7 @@ from model.deid.dataset.dataset import FaceDetDataset
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="")
     parser.add_argument("--config", type=str, default="/workspace/config/config_d2gan_dna.yml", help="d2gan parameter file path")
+    parser.add_argument("--batch_size", type=int, default=2, help="inference batch size")
     parser.add_argument("--dataset_dir", type=str, default="/dataset/dna_frame/eval/", help="test image directory path")
     parser.add_argument("--output_dir", type=str, default="/dataset/result/d2gan", help="image path")
     parser.add_argument('--save', action='store_true', help='If you want to save result image, please give this argument.')
@@ -35,6 +36,7 @@ if __name__ == '__main__':
     dataset_dir = option.dataset_dir
     output_dir = option.output_dir
     is_result_save = option.save
+    batch_size = option.batch_size
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     torch.cuda.set_device(config["device"])
@@ -44,7 +46,7 @@ if __name__ == '__main__':
     test_image_dir, test_label_dir = os.path.join(image_dir), os.path.join(label_dir)
     test_dataset = FaceDetDataset(test_image_dir, test_label_dir)
     test_loader = DataLoader(test_dataset,
-                             batch_size=2,
+                             batch_size=batch_size,
                              shuffle=False,
                              num_workers=1,
                              collate_fn=FaceDetDataset.collate_fn)
