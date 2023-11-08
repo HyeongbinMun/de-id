@@ -294,8 +294,8 @@ def parse_args():
 def main():
     args = parse_args()
     logging_dir = Path(args.output_dir, args.logging_dir)
-    #wandb.init(project="de-identification", name="sd-inpainting-nomask")
-    #wandb.config.update(args)
+    wandb.init(project="de-identification", name="sd-inpainting-nomask")
+    wandb.config.update(args)
 
     project_config = ProjectConfiguration(
         total_limit=args.checkpoints_total_limit, project_dir=args.output_dir, logging_dir=logging_dir
@@ -760,7 +760,7 @@ def main():
                         save_path = os.path.join(args.output_dir, f"checkpoint-{global_step}")
                         accelerator.save_state(save_path)
                         logger.info(f"Saved state to {save_path}")
-                        #wandb.save(save_path)
+                        wandb.save(save_path)
 
             logs = {"mse_loss": total_mse_loss.detach().item(),
                     "cos_loss": total_cosine_loss.detach().item(),
@@ -769,7 +769,7 @@ def main():
                     "mse_weight": mse_loss_weight}
             progress_bar.set_postfix(**logs)
             accelerator.log(logs, step=global_step)
-            #wandb.log(logs, step=global_step)
+            wandb.log(logs, step=global_step)
             mse_loss_weight = loss_scheduler.get_loss_weight()
             cosine_loss_weight = 1.0 - mse_loss_weight
 
