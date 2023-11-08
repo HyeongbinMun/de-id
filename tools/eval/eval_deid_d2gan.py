@@ -186,7 +186,7 @@ if __name__ == '__main__':
     avg_cossim = total_cossim / image_count
 
     categories = ["10%", "30%", "50%", "70%", "70above", "average"]
-    print("         \t".join([""] + categories))
+    print("         " + "\t".join([""] + categories))
     ssim_values = [
         metrics_by_bbox_ratio[cat]["ssim"] / metrics_by_bbox_ratio[cat]["count"] if metrics_by_bbox_ratio[cat]["count"] > 0 else "#" for cat in
         ["10", "30", "50", "70", "70above"]

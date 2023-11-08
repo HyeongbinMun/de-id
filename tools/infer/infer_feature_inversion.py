@@ -29,8 +29,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="object detection model batch inference test script")
     parser.add_argument("--face_config", type=str, default="/workspace/config/config_yolov7face.yml", help="parameter file path")
     parser.add_argument("--inverter_config", type=str, default="/workspace/config/config_inversion_resnet50unet_dna.yml", help="parameter file path")
-    parser.add_argument("--image_dir", type=str, default="/mldisk2/deid/dna/sample/origin/70+", help="image path")
-    parser.add_argument("--output_dir", type=str, default="/workspace/output/", help="image path")
+    parser.add_argument("--batch_size", type=int, default=16, help="inference batch size")
+    parser.add_argument("--image_dir", type=str, default="/workspace/output", help="image path")
+    parser.add_argument("--output_dir", type=str, default="/workspace/output_", help="image path")
     option = parser.parse_known_args()[0]
 
     image_dir = option.image_dir
@@ -38,6 +39,7 @@ if __name__ == '__main__':
     image_paths = [os.path.join(image_dir, image_name) for image_name in os.listdir(image_dir) if image_name.lower().endswith('.jpg')]
     face_config = option.face_config
     inverter_config = option.inverter_config
+    batch_size = option.batch_size
     tmp_dir = os.path.join(output_dir, "tmp")
 
     tmp_images_dir = os.path.join(tmp_dir, "images")
@@ -95,7 +97,7 @@ if __name__ == '__main__':
 
     test_dataset = FaceDetDataset(tmp_images_dir, tmp_labels_dir)
     test_loader = DataLoader(test_dataset,
-                             batch_size=16,
+                             batch_size=batch_size,
                              shuffle=False,
                              num_workers=1,
                              collate_fn=FaceDetDataset.collate_fn)
