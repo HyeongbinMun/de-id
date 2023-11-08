@@ -155,7 +155,7 @@ docker attach de-id_model
 
 ### How to Evaluation
 #### Preprocess 방법
-* [링크](tools/preprocess/Readme.md)를 참고하시기 바랍니다.
+* [링크](tools/preprocess/Readme.md#dna-video-db-evaluation-dataset-정제-순서)를 참고하시기 바랍니다.
 #### De-identification Model using Feature Inversion
 ```shell
 # in /workspace
