@@ -383,7 +383,6 @@ def main():
 
     # Load models and create wrapper for stable diffusion
     text_encoder = CLIPTextModel.from_pretrained(args.pretrained_model_name_or_path, subfolder="text_encoder")
-    infer_text_encoder = CLIPTextModel.from_pretrained(args.pretrained_model_name_or_path, subfolder="text_encoder")
     vae = AutoencoderKL.from_pretrained(args.pretrained_model_name_or_path, subfolder="vae")
     unet = UNet2DConditionModel.from_pretrained(args.pretrained_model_name_or_path, subfolder="unet")
 
@@ -492,6 +491,7 @@ def main():
         pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
 
         input_ids = tokenizer.pad({"input_ids": input_ids}, padding=True, return_tensors="pt").input_ids
+        # infer_input_ids = tokenizer.pad({"input_ids": input_ids}, padding="max_length", max_length=77, return_tensors="pt").input_ids
         masks = torch.stack(masks)
         masked_images = torch.stack(masked_images)
         batch = {"input_ids": input_ids, "pixel_values": pixel_values, "masks": masks, "masked_images": masked_images}
@@ -610,6 +610,21 @@ def main():
                 # Convert images to latent space
                 latents = vae.encode(batch["pixel_values"].to(dtype=weight_dtype)).latent_dist.sample()
                 latents = latents * vae.config.scaling_factor
+                generated_images_tensor = batch["pixel_values"]  # 이는 (batch_size, channels, height, width) 형태를 가정합니다.
+
+                # 이미지 데이터가 [-1, 1] 범위로 정규화되어 있다면 [0, 1] 범위로 변경합니다.
+                generated_images_tensor = (generated_images_tensor + 1) / 2
+                generated_images_tensor = generated_images_tensor.clamp(0, 1)
+
+                # 이미지를 저장합니다.
+                # 배치 내의 각 이미지를 개별 파일로 저장합니다.
+                for i, image_tensor in enumerate(generated_images_tensor):
+                    # 이미지 파일 경로를 설정합니다.
+                    save_path = f"/workspace/data/code/origin_image_{i}.jpg"
+
+                    # 이미지를 저장합니다.
+                    save_image(image_tensor, save_path)
+                    print(f"Saved image to {save_path}")
 
                 # Convert masked images to latent space
                 masked_latents = vae.encode(
@@ -644,18 +659,13 @@ def main():
                 # Get the text embedding for conditioning
                 encoder_hidden_states = text_encoder(batch["input_ids"])[0]
 
+
                 # Predict the noise residual
                 noise_pred = unet(latent_model_input, timesteps, encoder_hidden_states).sample
-                # print('noise_pred shape : {0}'.format(noise_pred.shape))
-
-                print('latents : ', latents.shape)
-                print('noise : ', noise.shape)
-                print('mask : ', mask.shape)
-                print('masked_latents : ', masked_latents.shape)
-                print('encoder_hidden_states : ', encoder_hidden_states.shape)
 
                 #-------------- inference start --------------
-                unet.eval()
+                # infer_encoder_hidden_states = text_encoder(batch["infer_input_ids"])[0]
+                # print('infer_encoder_hidden_states : ', infer_encoder_hidden_states.shape)
                 infer_scheduler.set_timesteps(50, device=latents.device)
                 infer_timesteps, num_inference_steps = get_timesteps(infer_scheduler, num_inference_steps=50,
                                                                      strength=1.0, device=latents.device)
@@ -664,7 +674,6 @@ def main():
                 infer_noise = torch.randn_like(latents)
                 infer_latents = infer_noise
                 infer_latents = infer_latents * infer_scheduler.init_noise_sigma
-                print('infer_latents : ', infer_latents.shape)
 
                 # 이미지 복원을 위한 denoising step (스케줄러에 따라 달라질 수 있음)
                 for i, t in enumerate(infer_timesteps):
@@ -673,16 +682,13 @@ def main():
                         infer_latent_model_input = infer_scheduler.scale_model_input(infer_latent_model_input, t)
                         infer_latent_model_input = torch.cat([infer_latent_model_input, mask, masked_latents], dim=1)
 
-                        infer_noise_pred = unet(infer_latent_model_input, t, encoder_hidden_states).sample
-
-                        noise_pred_uncond, noise_pred_text = infer_noise_pred.chunk(2)
-                        infer_noise_pred = noise_pred_uncond + 7.5 * (noise_pred_text - noise_pred_uncond)
-
+                        infer_noise_pred = unet(infer_latent_model_input, t, encoder_hidden_states, return_dict=False)[0]
                         # 이미지를 복원하기 위해 노이즈를 잠재 벡터에서 제거합니다.
-                        denoised_latents = infer_scheduler.step(infer_noise_pred, t, infer_latents, return_dict=False)[0]
+                        infer_latents = infer_scheduler.step(infer_noise_pred, t, infer_latents, return_dict=False)[0]
 
                 # Denoised latent 이미지를 실제 이미지로 디코딩합니다.
-                generated_images = vae.decode(denoised_latents / vae.config.scaling_factor, return_dict=False)
+                generated_images = vae.decode(infer_latents / vae.config.scaling_factor, return_dict=False)
+                # -------------- inference end --------------
 
                 generated_images_tensor = generated_images[0]  # 이는 (batch_size, channels, height, width) 형태를 가정합니다.
 
@@ -699,9 +705,6 @@ def main():
                     # 이미지를 저장합니다.
                     save_image(image_tensor, save_path)
                     print(f"Saved image to {save_path}")
-
-                #-------------- inference end --------------
-                unet.train()
 
                 # Get the target for loss depending on the prediction type
                 if noise_scheduler.config.prediction_type == "epsilon":
