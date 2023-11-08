@@ -4,10 +4,13 @@ import argparse
 from tqdm import tqdm
 from PIL import Image
 
-def check_and_delete_images(dataset_dir):
+def check_and_delete_images(dataset_dir, eval_mode=False):
     root_images_folder = os.path.join(dataset_dir, 'images')
     root_labels_folder = os.path.join(dataset_dir, 'labels')
-    dataset_types = os.listdir(root_images_folder)
+    if eval_mode:
+        dataset_types = [""]
+    else:
+        dataset_types = os.listdir(root_images_folder)
     for dataset_type in dataset_types:
         images_folder = os.path.join(root_images_folder, dataset_type)
         labels_folder = os.path.join(root_labels_folder, dataset_type)
@@ -61,10 +64,12 @@ def check_and_delete_images(dataset_dir):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Delete any images in the folder that don't open with PIL.")
-    parser.add_argument("--dataset_dir", type=str, default="/dataset/images_1080", help="dataset directory path")
+    parser.add_argument("--dataset_dir", type=str, default="/dataset/dna/eval", help="dataset directory path")
+    parser.add_argument('--eval', action='store_true', help='evaluation dataset mode')
 
     option = parser.parse_known_args()[0]
 
     dataset_dir = option.dataset_dir
+    eval_mode = option.eval
 
-    check_and_delete_images(dataset_dir)
+    check_and_delete_images(dataset_dir, eval_mode)

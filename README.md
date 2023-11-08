@@ -14,11 +14,16 @@
 ```shell
 # in workspace
 cd ${WOKRSPACE}
-git clone http://${PERSONAL_TOKEN}@github.com/jinhasong/de-id.git
+git clone --recursive http://${PERSONAL_TOKEN}@github.com/jinhasong/de-id.git
 cd de-id
 ```
 * 본 github 저장소를 clone하고 clone한 저장소의 디렉토리로 이동합니다.
 * 해당 저장소는 private로 되어 있기 떄문에 본인 계정의 personal token을 발행해야 clone이 가능합니다.
+* 만약 clone 할떄 --recursive 옵션을 주지 않았다면 아래 명령어를 실행하시기 바랍니다.
+  ```shell
+  git submodule init
+  git submodule update
+  ```
 ### docker-compose.yml
 ```yaml
 # vim docker-compose.yml
@@ -149,6 +154,8 @@ docker attach de-id_model
 </table>
 
 ### How to Evaluation
+#### Preprocess 방법
+* [링크](tools/preprocess/Readme.md)를 참고하시기 바랍니다.
 #### De-identification Model using Feature Inversion
 ```shell
 # in /workspace

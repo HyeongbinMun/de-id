@@ -14,12 +14,18 @@ from utility.image.coordinates import convert_coordinates_to_yolo_format
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Detects faces in images under the given directory in the format yolo dataset and generates labels under the directory labels in the format yolo by using the yolov7face model.")
     parser.add_argument("--config", type=str, default="/workspace/config/params_yolov7face.yml", help="parameter file path")
-    parser.add_argument("--dataset_dir", type=str, default="/mldisk_shared_/hbmun/vcdb/vcdb_frame_1080p/", help="source image directory")
+    parser.add_argument("--dataset_dir", type=str, default="/dataset/dna/eval", help="source image directory")
+    parser.add_argument('--eval', action='store_true', help='evaluation dataset mode')
 
     option = parser.parse_known_args()[0]
 
     dataset_dir = option.dataset_dir
-    dataset_types = os.listdir(os.path.join(dataset_dir, "images"))
+    eval_mode = option.eval
+    if eval_mode:
+        dataset_types = [""]
+    else:
+        dataset_types = os.listdir(os.path.join(dataset_dir, "images"))
+
     params_yml_path = option.config
     params = load_params_yml(params_yml_path)["infer"]
     model = YOLOv7Face(params)
