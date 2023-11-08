@@ -17,8 +17,8 @@ def prepare_mask_and_masked_image(image, mask):
     mask = torch.from_numpy(mask)
 
     masked_image = image * (mask < 0.5)
-    # save_image((mask + 1) / 2, '/data/face/test/mask_output.png')
-    # save_image((masked_image + 1) / 2, '/data/face/test/masked_image_output.png')
+    # save_image((mask + 1) / 2, '/workspace/data/result/mask_output.png')
+    # save_image((masked_image + 1) / 2, '/workspace/data/result/masked_image_output.png')
 
     return mask, masked_image
 
