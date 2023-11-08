@@ -610,21 +610,15 @@ def main():
                 # Convert images to latent space
                 latents = vae.encode(batch["pixel_values"].to(dtype=weight_dtype)).latent_dist.sample()
                 latents = latents * vae.config.scaling_factor
-                generated_images_tensor = batch["pixel_values"]  # 이는 (batch_size, channels, height, width) 형태를 가정합니다.
 
-                # 이미지 데이터가 [-1, 1] 범위로 정규화되어 있다면 [0, 1] 범위로 변경합니다.
-                generated_images_tensor = (generated_images_tensor + 1) / 2
-                generated_images_tensor = generated_images_tensor.clamp(0, 1)
-
-                # 이미지를 저장합니다.
-                # 배치 내의 각 이미지를 개별 파일로 저장합니다.
-                for i, image_tensor in enumerate(generated_images_tensor):
-                    # 이미지 파일 경로를 설정합니다.
-                    save_path = f"/workspace/data/code/origin_image_{i}.jpg"
-
-                    # 이미지를 저장합니다.
-                    save_image(image_tensor, save_path)
-                    print(f"Saved image to {save_path}")
+                # 이미지 저장
+                # generated_images_tensor = batch["pixel_values"]
+                # generated_images_tensor = (generated_images_tensor + 1) / 2
+                # generated_images_tensor = generated_images_tensor.clamp(0, 1)
+                # for i, image_tensor in enumerate(generated_images_tensor):
+                #     save_path = f"/workspace/data/code/origin_image_{i}.jpg"
+                #     save_image(image_tensor, save_path)
+                #     print(f"Saved image to {save_path}")
 
                 # Convert masked images to latent space
                 masked_latents = vae.encode(
@@ -659,18 +653,14 @@ def main():
                 # Get the text embedding for conditioning
                 encoder_hidden_states = text_encoder(batch["input_ids"])[0]
 
-
                 # Predict the noise residual
                 noise_pred = unet(latent_model_input, timesteps, encoder_hidden_states).sample
 
                 #-------------- inference start --------------
-                # infer_encoder_hidden_states = text_encoder(batch["infer_input_ids"])[0]
-                # print('infer_encoder_hidden_states : ', infer_encoder_hidden_states.shape)
                 infer_scheduler.set_timesteps(50, device=latents.device)
                 infer_timesteps, num_inference_steps = get_timesteps(infer_scheduler, num_inference_steps=50,
                                                                      strength=1.0, device=latents.device)
 
-                # if strength is 1. then initialise the latents to noise, else initial to image + noise
                 infer_noise = torch.randn_like(latents)
                 infer_latents = infer_noise
                 infer_latents = infer_latents * infer_scheduler.init_noise_sigma
@@ -688,23 +678,16 @@ def main():
 
                 # Denoised latent 이미지를 실제 이미지로 디코딩합니다.
                 generated_images = vae.decode(infer_latents / vae.config.scaling_factor, return_dict=False)
+                generated_images_tensor = generated_images[0]  # 이는 (batch_size, channels, height, width) 형태를 가정합니다.
                 # -------------- inference end --------------
 
-                generated_images_tensor = generated_images[0]  # 이는 (batch_size, channels, height, width) 형태를 가정합니다.
-
-                # 이미지 데이터가 [-1, 1] 범위로 정규화되어 있다면 [0, 1] 범위로 변경합니다.
-                generated_images_tensor = (generated_images_tensor + 1) / 2
-                generated_images_tensor = generated_images_tensor.clamp(0, 1)
-
-                # 이미지를 저장합니다.
-                # 배치 내의 각 이미지를 개별 파일로 저장합니다.
-                for i, image_tensor in enumerate(generated_images_tensor):
-                    # 이미지 파일 경로를 설정합니다.
-                    save_path = f"/workspace/data/code/generated_image_{i}.jpg"
-
-                    # 이미지를 저장합니다.
-                    save_image(image_tensor, save_path)
-                    print(f"Saved image to {save_path}")
+                # 이미지 저장
+                # generated_images_tensor = (generated_images_tensor + 1) / 2
+                # generated_images_tensor = generated_images_tensor.clamp(0, 1)
+                # for i, image_tensor in enumerate(generated_images_tensor):
+                #     save_path = f"/workspace/data/code/generated_image_{i}.jpg"
+                #     save_image(image_tensor, save_path)
+                #     print(f"Saved image to {save_path}")
 
                 # Get the target for loss depending on the prediction type
                 if noise_scheduler.config.prediction_type == "epsilon":
@@ -719,24 +702,23 @@ def main():
                 if args.with_prior_preservation:
                     # Chunk the noise and noise_pred into two parts and compute the loss on each part separately.
                     noise_pred, noise_pred_prior = torch.chunk(noise_pred, 2, dim=0)
-                    noise_pred_3ch = remove_alpha_channel(noise_pred)
-                    noise_pred_feature = feature_model(noise_pred_3ch)
-                    noise_pred_prior_3ch = remove_alpha_channel(noise_pred_prior)
-                    noise_pred_prior_feature = feature_model(noise_pred_prior_3ch)
-
                     target, target_prior = torch.chunk(target, 2, dim=0)
-                    target_3ch = remove_alpha_channel(target)
-                    target_feature = feature_model(target_3ch)
-                    target_prior_3ch = remove_alpha_channel(target_prior)
-                    target_prior_feature = feature_model(target_prior_3ch)
+
+                    # Chunk the origin and deid into two parts and compute the loss on each part separately.
+                    origin_images, origin_prior_images = torch.chunk(batch["pixel_values"], 2, dim=0)
+                    deid_images, deid_prior_images = torch.chunk(generated_images_tensor, 2, dim=0)
+                    origin_feature = feature_model(origin_images)
+                    origin__prior_feature = feature_model(origin_prior_images)
+                    deid_feature = feature_model(deid_images)
+                    deid_prior_feature = feature_model(deid_prior_images)
 
                     # Compute instance loss
                     mse_loss = F.mse_loss(noise_pred.float(), target.float(), reduction="none").mean([1, 2, 3]).mean()
-                    cos_feature_loss = 1 - criterion_image_feature_score(noise_pred_feature, target_feature).mean()
+                    cos_feature_loss = 1 - criterion_image_feature_score(origin_feature, deid_feature).mean()
 
                     # Compute prior loss
                     mse_prior_loss = F.mse_loss(noise_pred_prior.float(), target_prior.float(), reduction="mean")
-                    cos_prior_feature_loss = 1 - criterion_image_feature_score(noise_pred_prior_feature, target_prior_feature).mean()
+                    cos_prior_feature_loss = 1 - criterion_image_feature_score(origin__prior_feature, deid_prior_feature).mean()
 
                     # Add the prior loss to the instance loss.
                     total_mse_loss = mse_loss + mse_prior_loss * args.prior_loss_weight
@@ -745,15 +727,13 @@ def main():
                     total_cosine_loss = total_cosine_loss * cosine_loss_weight
                     total_loss = total_mse_loss + total_cosine_loss
                 else:
-                    noise_pred_3ch = remove_alpha_channel(noise_pred)
-                    target_3ch = remove_alpha_channel(target)
-                    noise_pred_feature = feature_model(noise_pred_3ch)
-                    target_feature = feature_model(target_3ch)
+                    origin_feature = feature_model(batch["pixel_values"])
+                    deid_feature = feature_model(generated_images_tensor)
 
                     # Compute instance loss
                     mse_loss = F.mse_loss(noise_pred.float(), target.float(), reduction="mean")
                     total_mse_loss = mse_loss * mse_loss_weight
-                    cos_feature_loss = 1 - criterion_image_feature_score(noise_pred_feature, target_feature).mean()
+                    cos_feature_loss = 1 - criterion_image_feature_score(origin_feature, deid_feature).mean()
                     total_cosine_loss = cos_feature_loss * cosine_loss_weight
                     total_loss = total_mse_loss + total_cosine_loss
 
