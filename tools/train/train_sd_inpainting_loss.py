@@ -9,6 +9,7 @@ from pathlib import Path
 import torch
 import torch.nn.functional as F
 import torch.utils.checkpoint
+from torchvision.utils import save_image
 from accelerate import Accelerator
 from accelerate.logging import get_logger
 from accelerate.utils import ProjectConfiguration, set_seed
@@ -21,6 +22,7 @@ from transformers import CLIPTextModel, CLIPTokenizer
 from diffusers import (
     AutoencoderKL,
     DDPMScheduler,
+    DDIMScheduler,
     StableDiffusionInpaintPipeline,
     StableDiffusionPipeline,
     UNet2DConditionModel,
@@ -31,7 +33,7 @@ from config.models import model_classes
 
 from model.deid.diffusers.utils.masked import prepare_mask_and_masked_image, random_mask
 from model.deid.diffusers.utils.dataset import DreamBoothDataset, PromptDataset
-from model.deid.diffusers.utils.utils import remove_alpha_channel, MSELossScheduler
+from model.deid.diffusers.utils.utils import remove_alpha_channel, MSELossScheduler, get_timesteps
 
 # Will error if the minimal version of diffusers is not installed. Remove at your own risks.
 check_min_version("0.13.0.dev0")
@@ -292,8 +294,8 @@ def parse_args():
 def main():
     args = parse_args()
     logging_dir = Path(args.output_dir, args.logging_dir)
-    wandb.init(project="de-identification", name="sd-inpainting-nomask")
-    wandb.config.update(args)
+    #wandb.init(project="de-identification", name="sd-inpainting-nomask")
+    #wandb.config.update(args)
 
     project_config = ProjectConfiguration(
         total_limit=args.checkpoints_total_limit, project_dir=args.output_dir, logging_dir=logging_dir
@@ -381,6 +383,7 @@ def main():
 
     # Load models and create wrapper for stable diffusion
     text_encoder = CLIPTextModel.from_pretrained(args.pretrained_model_name_or_path, subfolder="text_encoder")
+    infer_text_encoder = CLIPTextModel.from_pretrained(args.pretrained_model_name_or_path, subfolder="text_encoder")
     vae = AutoencoderKL.from_pretrained(args.pretrained_model_name_or_path, subfolder="vae")
     unet = UNet2DConditionModel.from_pretrained(args.pretrained_model_name_or_path, subfolder="unet")
 
@@ -438,6 +441,7 @@ def main():
     )
 
     noise_scheduler = DDPMScheduler.from_pretrained(args.pretrained_model_name_or_path, subfolder="scheduler")
+    infer_scheduler = DDIMScheduler.from_pretrained(args.pretrained_model_name_or_path, subfolder="scheduler")
 
     train_dataset = DreamBoothDataset(
         instance_data_root=args.instance_data_dir,
@@ -642,7 +646,62 @@ def main():
 
                 # Predict the noise residual
                 noise_pred = unet(latent_model_input, timesteps, encoder_hidden_states).sample
-                #print('noise_pred shape : {0}'.format(noise_pred.shape))
+                # print('noise_pred shape : {0}'.format(noise_pred.shape))
+
+                print('latents : ', latents.shape)
+                print('noise : ', noise.shape)
+                print('mask : ', mask.shape)
+                print('masked_latents : ', masked_latents.shape)
+                print('encoder_hidden_states : ', encoder_hidden_states.shape)
+
+                #-------------- inference start --------------
+                unet.eval()
+                infer_scheduler.set_timesteps(50, device=latents.device)
+                infer_timesteps, num_inference_steps = get_timesteps(infer_scheduler, num_inference_steps=50,
+                                                                     strength=1.0, device=latents.device)
+
+                # if strength is 1. then initialise the latents to noise, else initial to image + noise
+                infer_noise = torch.randn_like(latents)
+                infer_latents = infer_noise
+                infer_latents = infer_latents * infer_scheduler.init_noise_sigma
+                print('infer_latents : ', infer_latents.shape)
+
+                # 이미지 복원을 위한 denoising step (스케줄러에 따라 달라질 수 있음)
+                for i, t in enumerate(infer_timesteps):
+                    with torch.no_grad():
+                        infer_latent_model_input = infer_latents
+                        infer_latent_model_input = infer_scheduler.scale_model_input(infer_latent_model_input, t)
+                        infer_latent_model_input = torch.cat([infer_latent_model_input, mask, masked_latents], dim=1)
+
+                        infer_noise_pred = unet(infer_latent_model_input, t, encoder_hidden_states).sample
+
+                        noise_pred_uncond, noise_pred_text = infer_noise_pred.chunk(2)
+                        infer_noise_pred = noise_pred_uncond + 7.5 * (noise_pred_text - noise_pred_uncond)
+
+                        # 이미지를 복원하기 위해 노이즈를 잠재 벡터에서 제거합니다.
+                        denoised_latents = infer_scheduler.step(infer_noise_pred, t, infer_latents, return_dict=False)[0]
+
+                # Denoised latent 이미지를 실제 이미지로 디코딩합니다.
+                generated_images = vae.decode(denoised_latents / vae.config.scaling_factor, return_dict=False)
+
+                generated_images_tensor = generated_images[0]  # 이는 (batch_size, channels, height, width) 형태를 가정합니다.
+
+                # 이미지 데이터가 [-1, 1] 범위로 정규화되어 있다면 [0, 1] 범위로 변경합니다.
+                generated_images_tensor = (generated_images_tensor + 1) / 2
+                generated_images_tensor = generated_images_tensor.clamp(0, 1)
+
+                # 이미지를 저장합니다.
+                # 배치 내의 각 이미지를 개별 파일로 저장합니다.
+                for i, image_tensor in enumerate(generated_images_tensor):
+                    # 이미지 파일 경로를 설정합니다.
+                    save_path = f"/workspace/data/code/generated_image_{i}.jpg"
+
+                    # 이미지를 저장합니다.
+                    save_image(image_tensor, save_path)
+                    print(f"Saved image to {save_path}")
+
+                #-------------- inference end --------------
+                unet.train()
 
                 # Get the target for loss depending on the prediction type
                 if noise_scheduler.config.prediction_type == "epsilon":
@@ -718,7 +777,7 @@ def main():
                         save_path = os.path.join(args.output_dir, f"checkpoint-{global_step}")
                         accelerator.save_state(save_path)
                         logger.info(f"Saved state to {save_path}")
-                        wandb.save(save_path)
+                        #wandb.save(save_path)
 
             logs = {"mse_loss": total_mse_loss.detach().item(),
                     "cos_loss": total_cosine_loss.detach().item(),
@@ -727,7 +786,7 @@ def main():
                     "mse_weight": mse_loss_weight}
             progress_bar.set_postfix(**logs)
             accelerator.log(logs, step=global_step)
-            wandb.log(logs, step=global_step)
+            #wandb.log(logs, step=global_step)
             mse_loss_weight = loss_scheduler.get_loss_weight()
             cosine_loss_weight = 1.0 - mse_loss_weight
 
