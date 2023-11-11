@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-
+import argparse
 
 def generate_face_mask(image_path):
     # Load the cascade classifier
@@ -16,13 +16,25 @@ def generate_face_mask(image_path):
     # Create a black mask with same size as the image
     mask = np.zeros_like(gray)
 
-    # Fill in the detected faces in the mask with white color
+    total_face_area = 0  # Initialize variable to store total face area
+
+    # Fill in the detected faces in the mask with white color and calculate the total face area
     for (x, y, w, h) in faces:
         mask[y:y + h, x:x + w] = 255
+        total_face_area += w * h
 
-    return mask
+    # Calculate the percentage of face area in the total image area
+    total_image_area = gray.shape[0] * gray.shape[1]
+    face_percentage = (total_face_area / total_image_area) * 100
 
+    return mask, face_percentage
 
-# Example
-mask = generate_face_mask('/workspace/test/multi.jpg')
-cv2.imwrite('/workspace/test/multi_face.jpg', mask)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Generate face mask for a given image.")
+    parser.add_argument("--image_path", type=str, required=True, help="Path to the input image.")
+    parser.add_argument("--save_path", type=str, required=True, help="Path to save the generated mask image.")
+    args = parser.parse_args()
+
+    mask, percentage = generate_face_mask(args.image_path)
+    print(f"The face covers {percentage:.2f}% of the total image.")
+    cv2.imwrite(args.save_path, mask)
