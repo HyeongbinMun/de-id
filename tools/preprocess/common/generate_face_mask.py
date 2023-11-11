@@ -44,6 +44,10 @@ if __name__ == '__main__':
             # 마스크 저장 경로
             mask_save_path = os.path.join(mask_dir, filename)
 
+            # 해당 mask_path에 라벨 파일이 이미 있다면, 처리를 스킵합니다.
+            if os.path.exists(mask_save_path):
+                continue
+
             # 마스크 생성 및 저장
             save_mask_from_yolo(img, yolo_labels, mask_save_path)
 
