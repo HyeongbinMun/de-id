@@ -12,30 +12,9 @@ services:
     env_file:
       - "docker/dockerenv.env"
     volumes:
-      - /media/mmlab/hdd:/hdd
       - type: volume
         source: dataset
         target: /dataset
-        volume:
-          nocopy: true
-      - type: volume
-        source: mldisk_shared
-        target: /mldisk_shared
-        volume:
-          nocopy: true
-      - type: volume
-        source: mldisk_shared_
-        target: /mldisk_shared_
-        volume:
-          nocopy: true
-      - type: volume
-        source: mldisk2
-        target: /mldisk2
-        volume:
-          nocopy: true
-      - type: volume
-        source: mlsun
-        target: /mlsun
         volume:
           nocopy: true
     ports:
@@ -47,123 +26,10 @@ services:
     tty: true
     environment:
       TZ: Asia/Seoul
-  disc:
-    container_name: de-id_disc
-    build:
-      context: ./
-      dockerfile: docker/dockerfile_disc
-    runtime: nvidia
-    restart: always
-    ipc: "host"
-    env_file:
-      - "docker/dockerenv.env"
-    volumes:
-      - /media/mmlab/hdd:/hdd
-      - type: volume
-        source: dataset
-        target: /dataset
-        volume:
-          nocopy: true
-      - type: volume
-        source: mldisk_shared
-        target: /mldisk_shared
-        volume:
-          nocopy: true
-      - type: volume
-        source: mldisk_shared_
-        target: /mldisk_shared_
-        volume:
-          nocopy: true
-      - type: volume
-        source: mldisk2
-        target: /mldisk2
-        volume:
-          nocopy: true
-      - type: volume
-        source: mlsun
-        target: /mlsun
-        volume:
-          nocopy: true
-    ports:
-      - "9022:22"
-      - "9000:8000"
-      - "9001:8001"
-      - "9888:8888"
-    stdin_open: true
-    tty: true
-    environment:
-      TZ: Asia/Seoul
-  deepfake:
-    container_name: de-id_deepfake
-    build:
-      context: ./
-      dockerfile: docker/dockerfile_deepfake
-    runtime: nvidia
-    restart: always
-    ipc: "host"
-    env_file:
-      - "docker/dockerenv.env"
-    volumes:
-      - /media/mmlab/hdd:/hdd
-      - type: volume
-        source: dataset
-        target: /dataset
-        volume:
-          nocopy: true
-      - type: volume
-        source: mldisk_shared
-        target: /mldisk_shared
-        volume:
-          nocopy: true
-      - type: volume
-        source: mldisk_shared_
-        target: /mldisk_shared_
-        volume:
-          nocopy: true
-      - type: volume
-        source: mldisk2
-        target: /mldisk2
-        volume:
-          nocopy: true
-      - type: volume
-        source: mlsun
-        target: /mlsun
-        volume:
-          nocopy: true
-    ports:
-      - "10022:22"
-      - "10000:8000"
-      - "10001:8001"
-      - "10888:8888"
-    stdin_open: true
-    tty: true
-    environment:
-      TZ: Asia/Seoul
-
 volumes:
   dataset:
     driver: local
     driver_opts:
       type: none
-      device: "/home/mmlab/dataset/deid"
+      device: "/media/hdd"
       o: bind
-  mldisk_shared:
-    driver_opts:
-      type: "nfs"
-      o: "addr=mldisk.sogang.ac.kr,nolock,soft,rw"
-      device: ":/volume1/nfs_shared"
-  mldisk_shared_:
-    driver_opts:
-      type: "nfs"
-      o: "addr=mldisk.sogang.ac.kr,nolock,soft,rw"
-      device: ":/volume3/nfs_shared_"
-  mldisk2:
-    driver_opts:
-      type: "nfs"
-      o: "addr=mldisk2.sogang.ac.kr,nolock,soft,rw"
-      device: ":/volume1/nfs_shared"
-  mlsun:
-    driver_opts:
-      type: "nfs"
-      o: "addr=mlsun.sogang.ac.kr,nolock,soft,rw"
-      device: ":/volume1/nfs_shared"

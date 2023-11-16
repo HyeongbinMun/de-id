@@ -1,0 +1,62 @@
+infer:
+  device: 0
+  model:
+    face:
+      model_name: yolov7
+      model_path: /workspace/model/weights/yolov7-w6-face.pt
+      device: 0
+      image_size: 1280
+      conf_thresh: 0.1
+      batch_size: 16
+      iou_thresh: 0.5
+    feature:
+      model_name: ResNet50
+      model_path: /workspace/model/weights/sscd_disc_mixup.torchvision.pt
+      input_size: 224
+    inverter:
+      model_name: MobileUNetInverter
+      model_path: /dataset/feature_inversion_widerface/20230930_115943_MobileUNetInverter/weights/epoch_000100.pth
+      input_size: 224
+train:
+  device: 0
+  master_addr: localhost
+  master_port: "8001"
+  batch_size: 2
+  epoch: 200
+  valid_epoch: 5
+  learning_rate: 0.0002
+  decay_epoch: 100
+  dataset_dir: /dataset/widerface/deepfake_resize
+  save_dir: /dataset/stylegan2_icd/
+  model:
+    feature:
+      model_name: ResNet50
+      feature_weight_path: /workspace/model/weights/sscd_disc_mixup.torchvision.pt
+      input_size: 224
+    stylegan2:
+      model_name: StyleGAN2
+      resume: true
+      pretrained_model_path: /workspace/model/weights/550000.pt
+      n_sample: 64
+      input_size: 256
+      r1: 10
+      path_regularize: 2
+      path_batch_shrink: 2
+      d_reg_every: 16
+      g_reg_every: 4
+      mixing: 0.9
+      learning_rate: 0.002
+      channel_multiplier: 2
+      augment: false
+      augment_p: 0
+      ada_target: 0.6
+      ada_length: 500000
+      latent: 512
+      n_mlp: 8
+  lambda:
+    lambda_generator: 1.0
+    lambda_deid: 1.0
+    lambda_full_image: 1.0
+  wandb:
+    project_name: CycleGAN
+    account: jinhasong

@@ -28,11 +28,13 @@ def resize_images(source_dir, target_dir, resolution):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Resizes an image in the source image directory to the given resolution.")
-    parser.add_argument("--source_dir", type=str, default="/mldisk_shared_/hbmun/vcdb/vcdb_frame_origin", help="source image directory")
-    parser.add_argument("--target_dir", type=str, default="/mldisk_shared_/hbmun/vcdb/vcdb_frame_1080p", help="target image directory")
+    parser.add_argument("--source_dir", type=str, default="/dataset/dna/frames", help="source image directory")
+    parser.add_argument("--target_dir", type=str, default="/dataset/dna/eval", help="target image directory")
     parser.add_argument("--resolution", type=str, default="1920x1080", help="resize resolution 'wxh'(e.g. 1920x1080)")
+    parser.add_argument('--eval', action='store_true', help='evaluation dataset mode')
 
     args = parser.parse_args()
+    eval_mode = args.eval
 
     width, height = map(int, args.resolution.split("x"))
     resolution = (width, height)
@@ -40,7 +42,10 @@ if __name__ == '__main__':
     original_resolutions = []
     source_dir = os.path.join(args.source_dir, 'images')
     target_dir = os.path.join(args.target_dir, 'images')
-    dataset_types = os.listdir(os.path.join(args.source_dir, 'images'))
+    if eval_mode:
+        dataset_types = [""]
+    else:
+        dataset_types = os.listdir(os.path.join(args.source_dir, 'images'))
 
     for dataset_type in dataset_types:
         original_resolutions.append(resize_images(os.path.join(source_dir, dataset_type), os.path.join(target_dir, dataset_type), resolution))
