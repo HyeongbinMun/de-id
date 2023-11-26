@@ -60,8 +60,13 @@ if __name__ == '__main__':
                 image_results = model.detect_batch(images)
 
                 for j, faces in enumerate(image_results):
+                    label_path = os.path.join(label_dir, image_names[j].replace(".jpg", ".txt"))
+
+                    # 해당 label_path에 라벨 파일이 이미 있다면, 처리를 스킵합니다.
+                    if os.path.exists(label_path):
+                        continue
+
                     if len(faces) > 0:
-                        label_path = os.path.join(label_dir, image_names[j].replace(".jpg", ".txt"))
                         yolo_labels = convert_coordinates_to_yolo_format(images[j].shape[1], images[j].shape[0], faces)
                         save_bbox_image_xywh(os.path.join(bbox_image_dir_xywh, image_names[j]), images[j], faces)
                         save_face_txt(label_path, yolo_labels)
@@ -73,3 +78,18 @@ if __name__ == '__main__':
                 images = []
                 image_names = []
                 src_image_paths = []
+
+        # 마지막에 남아있는 이미지 처리
+        if len(images) > 0:
+            image_results = model.detect_batch(images)
+
+            for j, faces in enumerate(image_results):
+                if len(faces) > 0:
+                    label_path = os.path.join(label_dir, image_names[j].replace(".jpg", ".txt"))
+                    yolo_labels = convert_coordinates_to_yolo_format(images[j].shape[1], images[j].shape[0], faces)
+                    save_bbox_image_xywh(os.path.join(bbox_image_dir_xywh, image_names[j]), images[j], faces)
+                    save_face_txt(label_path, yolo_labels)
+                    copy_count += 1
+                else:
+                    image_path = os.path.join(image_dir, image_names[j])
+                    os.remove(image_path)

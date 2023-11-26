@@ -8,6 +8,24 @@ scipy>=1.4.1
 tqdm>=4.41.0
 PyYaml==6.0.1
 ruamel.yaml==0.17.32
+accelerate
+datasets
+hf-doc-builder
+huggingface-hub
+Jinja2
+librosa
+transformers
+
+# deepfloyd -------------------------------------
+sentencepiece
+xformers
+
+# diffusers-xl model -------------------------------------
+diffusers --upgrade
+invisible_watermark
+transformers
+accelerate
+safetensors
 
 # logging -------------------------------------
 tensorboard>=2.4.1

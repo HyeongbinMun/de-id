@@ -1,3 +1,5 @@
+
+# from model.det.face.yolov5.yolov5_face import YOLOv5Face
 from model.det.face.yolov7.yolov7_face import YOLOv7Face
 from model.vcd.s2vs.model.feature_extractor import FeatureExtractor
 from model.vcd.vcd.models.frame import MobileNet_AVG
@@ -14,6 +16,8 @@ from model.deid.gan.models.generator import GeneratorResNet
 model_classes = {
     "det": {
         "face": {
+            # "yolov5": YOLOv5Face,
+
             "yolov7": YOLOv7Face,
         }
     },
