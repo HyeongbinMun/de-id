@@ -2,6 +2,18 @@ import torch
 from torchvision import models
 from collections import OrderedDict
 
+from model.vcd.vcd.models.summary import summary
+
+
+class BaseModel(torch.nn.Module):
+    def __str__(self):
+        return self.__class__.__name__
+
+    def summary(self, input_size, batch_size=-1, device="cuda"):
+        try:
+            return summary(self, input_size, batch_size, device)
+        except:
+            return self.__repr__()
 
 class L2N(torch.nn.Module):
     def __init__(self, eps=1e-6):

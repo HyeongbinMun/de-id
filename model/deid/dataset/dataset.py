@@ -5,10 +5,11 @@ from torch.utils.data import Dataset
 import torchvision.transforms as transforms
 
 class FaceDetDataset(Dataset):
-    def __init__(self, image_dir, label_dir, transform=None):
+    def __init__(self, image_dir, label_dir, transform=None, image_size=(1000, 1000)):
         self.image_dir = image_dir
         self.label_dir = label_dir
         self.transform = transform
+        self.image_size = image_size
 
         self.image_files = sorted(os.listdir(image_dir))
         self.txt_files = sorted(os.listdir(label_dir))
@@ -23,7 +24,7 @@ class FaceDetDataset(Dataset):
         image = Image.open(image_path).convert('RGB')
         image_width, image_height = image.size
         if self.transform == None:
-            self.transform = transforms.Compose([transforms.ToTensor()])
+            self.transform = transforms.Compose([transforms.ToTensor(), transforms.Resize(self.image_size)])
         image = self.transform(image)
 
         with open(label_path, 'r') as f:
@@ -33,7 +34,7 @@ class FaceDetDataset(Dataset):
                 boxes.append([class_id, x_center, y_center, w, h])
             boxes = torch.tensor(boxes)
 
-        return image_path, label_path, image, boxes
+        return image_path, label_path, image, boxes, (image_width, image_height)
 
     @staticmethod
     def collate_fn(batch):
@@ -41,18 +42,20 @@ class FaceDetDataset(Dataset):
         label_paths = [item[1] for item in batch]
         images = [item[2] for item in batch]
         boxes_list = [item[3] for item in batch]
+        image_size = [item[4] for item in batch]
 
         images = torch.stack(images, dim=0)
 
-        return image_paths, label_paths, images, boxes_list
+        return image_paths, label_paths, images, boxes_list, image_size
 
 
 class GANFaceDetDataset(Dataset):
-    def __init__(self, image_orin_dir, image_deid_dir, label_dir, transform=None):
+    def __init__(self, image_orin_dir, image_deid_dir, label_dir, transform=None, image_size=(1000, 1000)):
         self.image_orin_dir = image_orin_dir
         self.image_deid_dir = image_deid_dir
         self.label_dir = label_dir
         self.transform = transform
+        self.image_size = image_size
 
         self.image_orin_files = sorted(os.listdir(image_orin_dir))
         self.image_deid_files = sorted(os.listdir(image_deid_dir))
@@ -68,12 +71,12 @@ class GANFaceDetDataset(Dataset):
 
         image_orin = Image.open(image_orin_path).convert('RGB')
         if self.transform == None:
-            self.transform = transforms.Compose([transforms.ToTensor()])
+            self.transform = transforms.Compose([transforms.ToTensor(), transforms.Resize(self.image_size)])
         image_orin = self.transform(image_orin)
 
         image_deid = Image.open(image_deid_path).convert('RGB')
         if self.transform == None:
-            self.transform = transforms.Compose([transforms.ToTensor()])
+            self.transform = transforms.Compose([transforms.ToTensor(), transforms.Resize(self.image_size)])
         image_deid = self.transform(image_deid)
 
         with open(label_path, 'r') as f:

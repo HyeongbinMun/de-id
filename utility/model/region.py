@@ -3,7 +3,7 @@ from PIL import Image, ImageDraw, ImageFont
 import torch.nn.functional as F
 
 
-def crop_face(images, boxes, index):
+def crop_face(images, boxes, index, slice=False):
     max_face = 16
     faces = []
     face_sizes = []
@@ -31,6 +31,12 @@ def crop_face(images, boxes, index):
         faces = [faces[i] for i in sorted_indices]
         image_indices = [image_indices[i] for i in sorted_indices]
         valid_boxes = [valid_boxes[i] for i in sorted_indices]
+
+    if slice:
+        while len(faces) % 4 != 0:
+            faces.pop()
+            image_indices.pop()
+            valid_boxes.pop()
 
     return faces, image_indices, valid_boxes
 

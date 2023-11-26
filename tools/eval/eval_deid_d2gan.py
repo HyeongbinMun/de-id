@@ -24,12 +24,11 @@ from model.deid.dataset.dataset import FaceDetDataset
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="")
-    parser.add_argument("--config", type=str, default="/workspace/config/config_inversion_mobileunet_dna.yml", help="invertsion parameter file path")
-    parser.add_argument("--batch_size", type=int, default=16, help="inference batch size")
+    parser.add_argument("--config", type=str, default="/workspace/config/config_d2gan_dna.yml", help="d2gan parameter file path")
+    parser.add_argument("--batch_size", type=int, default=2, help="inference batch size")
     parser.add_argument("--dataset_dir", type=str, default="/dataset/dna_frame/eval/", help="test image directory path")
-    parser.add_argument("--output_dir", type=str, default="/dataset/result/mobileunet", help="image path")
+    parser.add_argument("--output_dir", type=str, default="/dataset/result/d2gan", help="image path")
     parser.add_argument('--save', action='store_true', help='If you want to save result image, please give this argument.')
-
     option = parser.parse_known_args()[0]
 
     config = load_params_yml(option.config)['infer']
@@ -57,16 +56,19 @@ if __name__ == '__main__':
     # face_model = model_classes["det"]["face"][face_config["model_name"]](face_config)
     # print(f"Face Detection model is successfully loaded.({face_config['model_name']})")
 
-    # Feature Inversion Model
-    inversion_config = model_config["inverter"]
-    checkpoint = torch.load(inversion_config["model_path"], map_location=device)
-    inversion_model = model_classes["deid"][inversion_config["model_name"]]()
-    inversion_model.load_state_dict(checkpoint['model_state_dict'])
-    inversion_model = inversion_model.to(device)
+    # D2GAN Generator Model
+    generator_config = model_config["generator"]
+    generator_input_size = generator_config['input_size']
+    channels = generator_config['channels']
+    image_shape = (channels, generator_input_size, generator_input_size)
+    residual_block_number = generator_config['residual_block_number']
+    checkpoint = torch.load(generator_config["model_path"], map_location=device)
+    generator_model = model_classes["deid"][generator_config["model_name"]](image_shape, residual_block_number)
+    generator_model.load_state_dict(checkpoint['model_state_dict'])
+    generator_model = generator_model.to(device)
     transform = transforms.Compose([transforms.ToTensor()])
-    inversion_input_size = inversion_config['input_size']
-    inversion_model.eval()
-    print(f"Face Generator model is successfully loaded.({inversion_config['model_name']})")
+    generator_model.eval()
+    print(f"Face Generator model is successfully loaded.({generator_config['model_name']})")
 
     # Feature Extraction Model
     feature_config = config["model"]["feature"]
@@ -120,14 +122,15 @@ if __name__ == '__main__':
             batch_faces_boxes.extend(face_boxes)
 
         if len(batch_orin_faces) > 0:
-            batch_orin_faces = [F.interpolate(face.unsqueeze(0), size=(inversion_input_size, inversion_input_size), mode='bilinear', align_corners=False).squeeze(0) for face in batch_orin_faces]
+            batch_orin_faces = [F.interpolate(face.unsqueeze(0), size=(generator_input_size, generator_input_size), mode='bilinear', align_corners=False).squeeze(0) for face in batch_orin_faces]
             batch_orin_faces = torch.stack(batch_orin_faces)
 
-            batch_deid_faces = inversion_model(batch_orin_faces)
+            batch_deid_faces = generator_model(batch_orin_faces)
             deid_full_images = overlay_faces_on_image(images, batch_deid_faces, batch_faces_boxes, batch_images_indices)
 
             resized_origin_images = F.interpolate(images.clone(), size=(feature_model_input_size, feature_model_input_size))
             resized_deid_images = F.interpolate(deid_full_images.clone(), size=(feature_model_input_size, feature_model_input_size))
+
             orin_full_feature = feature_model(resized_origin_images)
             deid_full_feature = feature_model(resized_deid_images)
 
@@ -176,13 +179,14 @@ if __name__ == '__main__':
                     image_count += 1
                 except:
                     pass
+            progress_bar.set_description(f"{total_cossim/image_count:.4f}")
 
     avg_ssim = total_ssim / image_count
     avg_psnr = total_psnr / image_count
     avg_cossim = total_cossim / image_count
 
     categories = ["10%", "30%", "50%", "70%", "70above", "average"]
-    print("         \t".join([""] + categories))
+    print("         " + "\t".join([""] + categories))
     ssim_values = [
         metrics_by_bbox_ratio[cat]["ssim"] / metrics_by_bbox_ratio[cat]["count"] if metrics_by_bbox_ratio[cat]["count"] > 0 else "#" for cat in
         ["10", "30", "50", "70", "70above"]
