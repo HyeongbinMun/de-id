@@ -31,7 +31,16 @@ def copy_all_images_from_directory(src_dir, dst_dir, num_samples=None):
         shutil.copy2(src_file_path, dst_file_path)
 
 
-def copy_image_and_mask(src_image_dir, src_mask_dir, dst_image_dir, dst_mask_dir, num_samples=None):
+def copy_image_and_mask(src_image_dir, dst_image_dir, dst_mask_dir, keyword=None, num_samples=None):
+    """
+    Args:
+    src_image_dir (str): 소스 이미지 디렉토리의 경로.
+    dst_image_dir (str): 대상 이미지 디렉토리의 경로.
+    dst_mask_dir (str): 대상 마스크 디렉토리의 경로.
+    keyword (str): 파일 이름에 추가할 키워드.
+    num_samples (int, optional): 복사할 이미지의 수. None이면 모든 이미지를 복사합니다.
+    """
+    
     # 모든 이미지 파일의 경로를 리스트로 저장합니다.
     all_images = [os.path.join(subdir, file)
                   for subdir, _, files in os.walk(src_image_dir)
@@ -43,26 +52,27 @@ def copy_image_and_mask(src_image_dir, src_mask_dir, dst_image_dir, dst_mask_dir
 
     for src_image_path in tqdm(all_images, desc="Copying images and masks", unit="file"):
         # 이미지와 마스크 파일의 이름은 동일하므로 basename을 사용
-        file_name = os.path.basename(src_image_path)
+        file_name = keyword + "_" + os.path.basename(src_image_path)
 
-        # 이미지의 상대 경로를 구하고, 그것을 사용하여 마스크의 절대 경로를 구합니다.
-        relative_path = os.path.relpath(src_image_path, src_image_dir)
-        src_mask_path = os.path.join(src_mask_dir, relative_path)
+        src_mask_path = src_image_path.replace("images", "masks")
 
         dst_image_path = os.path.join(dst_image_dir, file_name)
         dst_mask_path = os.path.join(dst_mask_dir, file_name)
 
-        # 파일 복사
-        shutil.copy2(src_image_path, dst_image_path)
-        shutil.copy2(src_mask_path, dst_mask_path)
+        # 마스크 파일이 존재하지 않을 경우 에러를 무시하고 계속 진행
+        try:
+            shutil.copy2(src_mask_path, dst_mask_path)
+            shutil.copy2(src_image_path, dst_image_path)
+        except FileNotFoundError:
+            print(f"Mask file not found for {src_mask_path}, skipping.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Copy a specified number of images and their masks from one directory to another.")
     parser.add_argument("--type", type=str, default="double", help="single or double")
     parser.add_argument("--src_image_dir", type=str, default='/dataset/face/vggface2hq_refine/images', help="Source directory images path.")
-    parser.add_argument("--src_mask_dir", type=str, default='/dataset/face/vggface2hq_refine/masks', help="Source directory masks path.")
     parser.add_argument("--dst_image_dir", type=str, default='/dataset/face/class/vggface2_pre_1000/images', help="save directory images path.")
     parser.add_argument("--dst_mask_dir", type=str, default='/dataset/face/class/vggface2_pre_1000/masks', help="save directory masks path.")
+    parser.add_argument("--keyword", type=str, help="image keyword.")
     parser.add_argument("--num_samples", type=int, help="Number of images and masks to copy.")
 
     args = parser.parse_args()
@@ -70,4 +80,4 @@ if __name__ == "__main__":
     if args.type == 'single':
         copy_all_images_from_directory(args.src_image_dir, args.dst_image_dir)
     else:
-        copy_image_and_mask(args.src_image_dir, args.src_mask_dir, args.dst_image_dir, args.dst_mask_dir, args.num_samples)
+        copy_image_and_mask(args.src_image_dir, args.dst_image_dir, args.dst_mask_dir, args.keyword, args.num_samples)

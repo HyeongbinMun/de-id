@@ -8,6 +8,12 @@ from tqdm import tqdm
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 from utility.image.file import save_mask_from_yolo
 
+def get_image_path(label_path, image_dir):
+    # 레이블 파일 이름에서 확장자를 제거합니다.
+    base_name = os.path.splitext(os.path.basename(label_path))[0]
+    # 해당하는 이미지 파일 경로를 반환합니다.
+    return os.path.join(image_dir, base_name + ".jpg")
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="mask images save.")
     parser.add_argument("--dataset_dir", type=str, default="/dataset/face/vggface2hq_refine/", help="source image directory")
@@ -24,14 +30,11 @@ if __name__ == '__main__':
 
         os.makedirs(mask_dir, exist_ok=True)
 
-        image_paths = [os.path.join(image_dir, image_name) for image_name in sorted(os.listdir(image_dir))]
-        label_paths = [os.path.join(label_dir, image_name) for image_name in sorted(os.listdir(label_dir))]
+        label_paths = [os.path.join(label_dir, label_name) for label_name in sorted(os.listdir(label_dir))]
 
-        images = []
-        image_names = []
-        src_image_paths = []
-        progress_bar = tqdm(zip(label_paths, image_paths), total=len(image_paths))
-        for label_path, image_path in progress_bar:
+        progress_bar = tqdm(label_paths, total=len(label_paths))
+        for label_path in progress_bar:
+            image_path = get_image_path(label_path, image_dir) # 이미지 경로를 레이블 파일 이름을 기반으로 얻습니다.
             filename = os.path.basename(image_path)
 
             # 이미지 로드
@@ -50,4 +53,3 @@ if __name__ == '__main__':
 
             # 마스크 생성 및 저장
             save_mask_from_yolo(img, yolo_labels, mask_save_path)
-

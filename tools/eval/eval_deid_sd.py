@@ -139,10 +139,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Evaluate metrics for single image pair.")
     parser.add_argument("--config", type=str, default="/workspace/config/config_yolov7face.yml", help="parameter file path")
     parser.add_argument("--model", type=str, default="ResNet50", help="feature model ResNet50 or MobileNet_AVG")
-    parser.add_argument("--all_print", type=str, default=True, help="all print option True or False")
+    parser.add_argument("--all_print", type=str, default=False, help="all print option True or False")
     parser.add_argument("--model_path", type=str, default="/workspace/model/weights/sscd_disc_mixup.torchvision.pt", help="feature model path")
     parser.add_argument("--origin_directory", type=str, required=True, help="Directory containing original images.")
     parser.add_argument("--deid_directory", type=str, required=True, help="Directory containing de-identified images.")
+    parser.add_argument("--mode", type=str, choices=['directory', 'files'], default='files', help="Evaluation mode: 'directory' or 'files'")
     option = parser.parse_known_args()[0]
 
     params_yml_path = option.config
@@ -165,47 +166,89 @@ if __name__ == '__main__':
     feature_model_input_size = 224
     print(f"Feature Extraction model is successfully loaded.({option.model})")
 
-    # 이미지 파일 이름 목록 가져오기
-    origin_files = [f for f in os.listdir(option.origin_directory) if f.endswith('.jpg')]
-    deid_files = [f for f in os.listdir(option.deid_directory) if f.endswith('.jpg')]
+    if option.mode == 'files':
+        # 이미지 파일 이름 목록 가져오기
+        origin_files = [f for f in os.listdir(option.origin_directory) if f.endswith('.jpg')]
+        deid_files = [f for f in os.listdir(option.deid_directory) if f.endswith('.jpg')]
 
-    # 두 디렉토리에 모두 존재하는 파일 이름만 가져오기
-    common_files = set(origin_files).intersection(set(deid_files))
+        # 두 디렉토리에 모두 존재하는 파일 이름만 가져오기
+        common_files = set(origin_files).intersection(set(deid_files))
 
-    # 각 스코어의 누적 값을 저장할 딕셔너리
-    total_scores = {"psnr": 0, "ssim": 0, "mse_face": 0, "cosine_similarity": 0}
+        # 각 스코어의 누적 값을 저장할 딕셔너리
+        total_scores = {"psnr": 0, "ssim": 0, "mse_face": 0, "cosine_similarity": 0}
 
-    # 각 이미지 쌍의 스코어를 저장할 리스트
-    all_scores = []
+        # 각 이미지 쌍의 스코어를 저장할 리스트
+        all_scores = []
 
-    # 각 쌍에 대한 평가 수행
-    for image_file in tqdm(common_files, desc="Evaluating"):
-        origin_image_path = os.path.join(option.origin_directory, image_file)
-        deid_image_path = os.path.join(option.deid_directory, image_file)
+        # 각 쌍에 대한 평가 수행
+        for image_file in tqdm(common_files, desc="Evaluating"):
+            origin_image_path = os.path.join(option.origin_directory, image_file)
+            deid_image_path = os.path.join(option.deid_directory, image_file)
 
-        scores = evaluate_image_pair(feature_model, feature_model_input_size, origin_image_path, deid_image_path)
-        all_scores.append((image_file, scores))
+            scores = evaluate_image_pair(feature_model, feature_model_input_size, origin_image_path, deid_image_path)
+            all_scores.append((image_file, scores))
 
-        # 각 스코어 누적
-        for key in scores:
-            total_scores[key] += scores[key]
+            # 각 스코어 누적
+            for key in scores:
+                total_scores[key] += scores[key]
 
-    # 모든 스코어 출력
-    if option.all_print:
-        for image_file, scores in all_scores:
-            print(f"Image: {image_file}")
-            print(
-                f"PSNR: {scores['psnr']:.4f}, \n"
-                f"SSIM: {scores['ssim']:.4f}, \n"
-                f"MSE Face: {scores['mse_face']:.4f}, \n"
-                f"Cosine Similarity: {scores['cosine_similarity']:.4f}")
+        # 모든 스코어 출력
+        if option.all_print:
+            for image_file, scores in all_scores:
+                print(f"Image: {image_file}")
+                print(
+                    f"PSNR: {scores['psnr']:.4f}, \n"
+                    f"SSIM: {scores['ssim']:.4f}, \n"
+                    f"MSE Face: {scores['mse_face']:.4f}, \n"
+                    f"Cosine Similarity: {scores['cosine_similarity']:.4f}")
+                print("---------------------------------------------------")
+
+        num_images = len(common_files)
+
+        # 평균 스코어 출력
+        print("\n----------------- Average Scores -----------------")
+        for key in total_scores:
+            avg_score = total_scores[key] / num_images
+            print(f"Average {key}: {avg_score:.4f}")
+        print("---------------------------------------------------")
+
+
+    elif option.mode == 'directory':
+        # 디렉토리 모드에서 평가 수행
+        subdir_scores = {}
+        for subdir in tqdm(os.listdir(option.origin_directory), desc="Processing Directories", unit="dir"):
+            origin_subdir_path = os.path.join(option.origin_directory, subdir)
+            deid_subdir_path = os.path.join(option.deid_directory, subdir)
+
+            if os.path.isdir(origin_subdir_path) and os.path.isdir(deid_subdir_path):
+                subdir_files = [f for f in os.listdir(origin_subdir_path) if f.endswith('.jpg')]
+                subdir_common_files = set(subdir_files).intersection(set(os.listdir(deid_subdir_path)))
+                subdir_total_scores = {"psnr": 0, "ssim": 0, "mse_face": 0, "cosine_similarity": 0}
+
+                for image_file in tqdm(subdir_common_files, desc=f"Processing {subdir}", leave=False, unit="img"):
+                    origin_image_path = os.path.join(origin_subdir_path, image_file)
+                    deid_image_path = os.path.join(deid_subdir_path, image_file)
+                    scores = evaluate_image_pair(feature_model, feature_model_input_size, origin_image_path, deid_image_path)
+
+                    for key in scores:
+                        subdir_total_scores[key] += scores[key]
+
+                num_images = len(subdir_common_files)
+                subdir_avg_scores = {k: v / num_images for k, v in subdir_total_scores.items()}
+                subdir_scores[subdir] = subdir_avg_scores
+
+        # 디렉토리별 평균 스코어 출력
+        print("\n----------------- Average Scores by Directory -----------------")
+        for subdir, scores in subdir_scores.items():
+            print(f"Directory: {subdir}")
+            for key, avg_score in scores.items():
+                print(f"Average {key}: {avg_score:.4f}")
             print("---------------------------------------------------")
 
-    num_images = len(common_files)
-
-    # 평균 스코어 출력
-    print("\n----------------- Average Scores -----------------")
-    for key in total_scores:
-        avg_score = total_scores[key] / num_images
-        print(f"Average {key}: {avg_score:.4f}")
-    print("---------------------------------------------------")
+        # 전체 평균 스코어 계산
+        total_scores = {key: sum(subdir_scores[subdir][key] for subdir in subdir_scores) / len(subdir_scores) for key in
+                        subdir_total_scores}
+        print("\n----------------- Overall Average Scores -----------------")
+        for key, avg_score in total_scores.items():
+            print(f"Overall Average {key}: {avg_score:.4f}")
+        print("---------------------------------------------------")

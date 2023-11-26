@@ -1,4 +1,4 @@
-from model.det.face.yolov5.yolov5_face import YOLOv5Face
+# from model.det.face.yolov5.yolov5_face import YOLOv5Face
 from model.det.face.yolov7.yolov7_face import YOLOv7Face
 from model.vcd.models.mobilenetv2_avg import MobileNet_AVG
 from model.icd.sscd.sscd.models.model import Model as ResNet
@@ -14,7 +14,7 @@ from model.deid.feature_inversion.models.mobilenetv3_unet import MobileNetV3Larg
 model_classes = {
     "det": {
         "face": {
-            "yolov5": YOLOv5Face,
+            # "yolov5": YOLOv5Face,
             "yolov7": YOLOv7Face,
         }
     },

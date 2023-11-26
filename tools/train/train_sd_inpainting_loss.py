@@ -491,7 +491,6 @@ def main():
         pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
 
         input_ids = tokenizer.pad({"input_ids": input_ids}, padding=True, return_tensors="pt").input_ids
-        # infer_input_ids = tokenizer.pad({"input_ids": input_ids}, padding="max_length", max_length=77, return_tensors="pt").input_ids
         masks = torch.stack(masks)
         masked_images = torch.stack(masked_images)
         batch = {"input_ids": input_ids, "pixel_values": pixel_values, "masks": masks, "masked_images": masked_images}
@@ -707,23 +706,23 @@ def main():
                     # Chunk the origin and deid into two parts and compute the loss on each part separately.
                     origin_images, origin_prior_images = torch.chunk(batch["pixel_values"], 2, dim=0)
                     deid_images, deid_prior_images = torch.chunk(generated_images_tensor, 2, dim=0)
-                    origin_feature = feature_model(origin_images)
-                    origin__prior_feature = feature_model(origin_prior_images)
-                    deid_feature = feature_model(deid_images)
+                    #origin_feature = feature_model(origin_images)
+                    origin_prior_feature = feature_model(origin_prior_images)
+                    #deid_feature = feature_model(deid_images)
                     deid_prior_feature = feature_model(deid_prior_images)
 
                     # Compute instance loss
                     mse_loss = F.mse_loss(noise_pred.float(), target.float(), reduction="none").mean([1, 2, 3]).mean()
-                    cos_feature_loss = 1 - criterion_image_feature_score(origin_feature, deid_feature).mean()
+                    #cos_feature_loss = 1 - criterion_image_feature_score(origin_feature, deid_feature).mean()
 
                     # Compute prior loss
                     mse_prior_loss = F.mse_loss(noise_pred_prior.float(), target_prior.float(), reduction="mean")
-                    cos_prior_feature_loss = 1 - criterion_image_feature_score(origin__prior_feature, deid_prior_feature).mean()
+                    cos_prior_feature_loss = 1 - criterion_image_feature_score(origin_prior_feature, deid_prior_feature).mean()
 
                     # Add the prior loss to the instance loss.
                     total_mse_loss = mse_loss + mse_prior_loss * args.prior_loss_weight
                     total_mse_loss = total_mse_loss * mse_loss_weight
-                    total_cosine_loss = cos_feature_loss + args.prior_loss_weight * cos_prior_feature_loss
+                    total_cosine_loss = cos_prior_feature_loss
                     total_cosine_loss = total_cosine_loss * cosine_loss_weight
                     total_loss = total_mse_loss + total_cosine_loss
                 else:
