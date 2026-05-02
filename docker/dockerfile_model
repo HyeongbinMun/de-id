@@ -5,9 +5,18 @@ ENV LC_ALL=C.UTF-8
 ENV LANG=C.UTF-8
 ARG DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get -y install \
-    python3 python3-pip python3-dev \
-    libgl1 tzdata git wget ssh vim nvtop
+# -----------------------------------------------------------------------------
+# OS packages
+# -----------------------------------------------------------------------------
+# - python toolchain
+# - libgl1: opencv runtime
+# - tzdata, git, wget, curl, ssh, vim, nvtop: 운영/디버깅
+# - zstd: ollama 설치 스크립트가 .tzst 압축해제용으로 요구
+# - ca-certificates: HTTPS 인증서
+RUN apt-get update && apt-get -y install --no-install-recommends \
+        python3 python3-pip python3-dev \
+        libgl1 tzdata git wget curl ca-certificates ssh vim nvtop zstd \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN ln -sf /usr/share/zoneinfo/Asia/Seoul /etc/localtime
 RUN ln -s /usr/bin/python3 /usr/bin/python
@@ -17,13 +26,38 @@ RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes #prohibit-p
 WORKDIR /workspace
 ADD . .
 
-RUN pip3 install --upgrade pip
-RUN pip3 install setuptools
-RUN pip3 install torch==1.13.1+cu117 torchvision==0.14.1+cu117 --extra-index-url https://download.pytorch.org/whl/cu117
+# -----------------------------------------------------------------------------
+# Python packages
+# -----------------------------------------------------------------------------
+# torch / torchvision 등은 requirements_model.txt 가 cu121 버전으로 설치한다.
+# (베이스 이미지 CUDA toolkit 11.7 은 ollama 자체 cuda 런타임/파이토치 wheel
+#  내장 CUDA 와 무관하게 동작하므로 그대로 둔다.)
+RUN pip3 install --upgrade pip setuptools wheel
 RUN pip3 install --upgrade diffusers
 RUN pip3 install -r docker/requirements_model.txt
 
+# 사전 학습 가중치
 RUN bash scripts/weights/download.sh
 
+# -----------------------------------------------------------------------------
+# Ollama (LLaVA 캡션 생성용)
+# -----------------------------------------------------------------------------
+# 컨테이너 안에서 LLaVA 같은 멀티모달 모델로 캡션을 사전 생성할 수 있도록
+# ollama 바이너리를 이미지에 포함시킨다. 데몬은 docker-compose 로 실행되는
+# 컨테이너 내에서 `ollama serve` (또는 scripts/caption_ffhq.sh 의 AUTOSTART_OLLAMA=1)
+# 로 띄운다.
+RUN curl -fsSL https://ollama.com/install.sh | sh \
+    && ollama --version 2>/dev/null || true
+
+# -----------------------------------------------------------------------------
+# CUDA userspace 라이브러리 정리
+# -----------------------------------------------------------------------------
+# nvidia-container-runtime 이 호스트 측 NVIDIA 드라이버 userspace 라이브러리
+# (libnvidia-ml.so.<DRIVER>, libcuda.so.<DRIVER>) 를 컨테이너 시작 시 주입한다.
+# 베이스 이미지에 들어있는 이전 버전 잔재가 남아있으면 libcuda.so.1 심볼릭링크가
+# 호스트 커널 드라이버와 다른 버전을 가리키게 되어 ollama 등에서 cuInit() 가
+# 실패한다 (CPU 모드로 떨어짐). 이를 막기 위해 잔재를 모두 제거한다.
 RUN rm -f /lib/x86_64-linux-gnu/libnvidia-ml.so* \
-         /usr/lib/x86_64-linux-gnu/libnvidia-ml.so*
+          /usr/lib/x86_64-linux-gnu/libnvidia-ml.so* \
+          /lib/x86_64-linux-gnu/libcuda.so* \
+          /usr/lib/x86_64-linux-gnu/libcuda.so*
