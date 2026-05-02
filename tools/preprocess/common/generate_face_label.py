@@ -1,95 +1,164 @@
 import os
 import sys
 import cv2
-import shutil
 import argparse
 from tqdm import tqdm
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
-from utility.params import load_params_yml
-from utility.image.file import save_face_txt, save_bbox_image_xywh, save_bbox_image_yolo
-from model.det.face.yolov7.yolov7_face import YOLOv7Face
-from utility.image.coordinates import convert_coordinates_to_yolo_format
+from utility.image.file import save_face_txt, save_bbox_image_yolo
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Detects faces in images under the given directory in the format yolo dataset and generates labels under the directory labels in the format yolo by using the yolov7face model.")
-    parser.add_argument("--config", type=str, default="/workspace/config/params_yolov7face.yml", help="parameter file path")
-    parser.add_argument("--dataset_dir", type=str, default="/dataset/dna/eval", help="source image directory")
-    parser.add_argument('--eval', action='store_true', help='evaluation dataset mode')
+try:
+    from insightface.app import FaceAnalysis
+except ImportError:
+    print("insightface 패키지가 필요합니다: pip install insightface onnxruntime-gpu")
+    sys.exit(1)
 
-    option = parser.parse_known_args()[0]
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
+
+
+def build_detector(gpu_id: int = 0, det_size: int = 640):
+    app = FaceAnalysis(
+        allowed_modules=["detection"],
+        providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
+    )
+    app.prepare(ctx_id=gpu_id, det_size=(det_size, det_size))
+    return app
+
+
+def bbox_to_yolo(x1, y1, x2, y2, img_w, img_h):
+    """(x1,y1,x2,y2) pixel bbox → YOLO normalized (cx, cy, w, h)."""
+    cx = ((x1 + x2) / 2.0) / img_w
+    cy = ((y1 + y2) / 2.0) / img_h
+    bw = (x2 - x1) / img_w
+    bh = (y2 - y1) / img_h
+    cx = max(0.0, min(1.0, cx))
+    cy = max(0.0, min(1.0, cy))
+    bw = max(0.0, min(1.0, bw))
+    bh = max(0.0, min(1.0, bh))
+    return cx, cy, bw, bh
+
+
+def detect_and_save_labels(
+    app,
+    image_dir: str,
+    label_dir: str,
+    vis_dir: str = None,
+    skip_existing: bool = True,
+    remove_no_face: bool = False,
+    conf_threshold: float = 0.5,
+):
+    os.makedirs(label_dir, exist_ok=True)
+    if vis_dir:
+        os.makedirs(vis_dir, exist_ok=True)
+
+    image_files = sorted(
+        f for f in os.listdir(image_dir)
+        if os.path.splitext(f)[1].lower() in IMAGE_EXTENSIONS
+    )
+
+    no_face_count = 0
+    detect_count = 0
+
+    for image_name in tqdm(image_files, desc=f"Detecting faces in {os.path.basename(image_dir)}"):
+        stem = os.path.splitext(image_name)[0]
+        label_path = os.path.join(label_dir, stem + ".txt")
+
+        if skip_existing and os.path.exists(label_path):
+            continue
+
+        image_path = os.path.join(image_dir, image_name)
+        img = cv2.imread(image_path)
+        if img is None:
+            print(f"  [WARN] 이미지 로드 실패: {image_path}")
+            continue
+
+        h, w = img.shape[:2]
+        faces = app.get(img)
+
+        # confidence threshold 미만 제거
+        faces = [f for f in faces if f.det_score >= conf_threshold]
+
+        if len(faces) == 0:
+            no_face_count += 1
+            if remove_no_face:
+                os.remove(image_path)
+            continue
+
+        yolo_labels = []
+        for face in faces:
+            x1, y1, x2, y2 = face.bbox
+            cx, cy, bw, bh = bbox_to_yolo(x1, y1, x2, y2, w, h)
+            yolo_labels.append(f"0 {cx:.6f} {cy:.6f} {bw:.6f} {bh:.6f}")
+
+        save_face_txt(label_path, yolo_labels)
+        detect_count += 1
+
+        if vis_dir:
+            save_bbox_image_yolo(
+                os.path.join(vis_dir, image_name), img.copy(), yolo_labels
+            )
+
+    print(f"  → 검출 성공: {detect_count}, 얼굴 미검출: {no_face_count}")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="InsightFace(SCRFD) 기반 얼굴 검출 → YOLO 포맷 라벨 생성"
+    )
+    parser.add_argument(
+        "--dataset_dir", type=str, required=True, help="데이터셋 루트 디렉토리"
+    )
+    parser.add_argument(
+        "--det_size", type=int, default=640, help="검출기 입력 크기 (default: 640)"
+    )
+    parser.add_argument(
+        "--conf_threshold", type=float, default=0.5, help="검출 confidence 임계값"
+    )
+    parser.add_argument(
+        "--eval", action="store_true", help="평가 데이터셋 모드 (images/ 하위 split 없음)"
+    )
+    parser.add_argument(
+        "--visualize", action="store_true", help="검출 결과 시각화 이미지 저장"
+    )
+    parser.add_argument(
+        "--no_skip", action="store_true", help="이미 존재하는 라벨도 다시 생성"
+    )
+    parser.add_argument(
+        "--remove_no_face", action="store_true",
+        help="얼굴이 검출되지 않은 이미지 삭제",
+    )
+    parser.add_argument(
+        "--gpu_id", type=int, default=0, help="GPU ID (default: 0)"
+    )
+
+    option = parser.parse_args()
+
+    app = build_detector(gpu_id=option.gpu_id, det_size=option.det_size)
 
     dataset_dir = option.dataset_dir
-    eval_mode = option.eval
-    if eval_mode:
+    if option.eval:
         dataset_types = [""]
     else:
-        dataset_types = os.listdir(os.path.join(dataset_dir, "images"))
-
-    params_yml_path = option.config
-    params = load_params_yml(params_yml_path)["infer"]
-    model = YOLOv7Face(params)
+        dataset_types = sorted(os.listdir(os.path.join(dataset_dir, "images")))
 
     for dataset_type in dataset_types:
         image_dir = os.path.join(dataset_dir, "images", dataset_type)
         label_dir = os.path.join(dataset_dir, "labels", dataset_type)
-        bbox_image_dir_xywh = os.path.join(dataset_dir, "xywh", dataset_type)
-        bbox_image_dir_yolo = os.path.join(dataset_dir, "yolo", dataset_type)
+        vis_dir = (
+            os.path.join(dataset_dir, "yolo", dataset_type)
+            if option.visualize
+            else None
+        )
 
-        os.makedirs(label_dir, exist_ok=True)
-        os.makedirs(bbox_image_dir_xywh, exist_ok=True)
-        os.makedirs(bbox_image_dir_yolo, exist_ok=True)
+        print(f"\n[{dataset_type or 'eval'}] 처리 중: {image_dir}")
+        detect_and_save_labels(
+            app,
+            image_dir,
+            label_dir,
+            vis_dir=vis_dir,
+            skip_existing=not option.no_skip,
+            remove_no_face=option.remove_no_face,
+            conf_threshold=option.conf_threshold,
+        )
 
-        image_paths = [os.path.join(image_dir, image_name) for image_name in sorted(os.listdir(image_dir))]
-        image_count = len(image_paths)
-        copy_count = 0
-
-        images = []
-        image_names = []
-        src_image_paths = []
-        progress_bar = tqdm(enumerate(image_paths), total=len(image_paths))
-        for i, image_path in progress_bar:
-            if len(images) < params["batch_size"]:
-                image_size = params["image_size"]
-                resized_image = cv2.resize(cv2.imread(image_path), (image_size, image_size))
-                images.append(resized_image)
-                image_name = image_path.split("/")[-1]
-                image_names.append(image_name)
-                src_image_paths.append(image_path)
-            else:
-                image_results = model.detect_batch(images)
-
-                for j, faces in enumerate(image_results):
-                    label_path = os.path.join(label_dir, image_names[j].replace(".jpg", ".txt"))
-
-                    # 해당 label_path에 라벨 파일이 이미 있다면, 처리를 스킵합니다.
-                    if os.path.exists(label_path):
-                        continue
-
-                    if len(faces) > 0:
-                        yolo_labels = convert_coordinates_to_yolo_format(images[j].shape[1], images[j].shape[0], faces)
-                        save_bbox_image_xywh(os.path.join(bbox_image_dir_xywh, image_names[j]), images[j], faces)
-                        save_face_txt(label_path, yolo_labels)
-                        copy_count += 1
-                    else:
-                        image_path = os.path.join(image_dir, image_names[j])
-                        os.remove(image_path)
-                progress_bar.set_description(f"Processing({dataset_type})")
-                images = []
-                image_names = []
-                src_image_paths = []
-
-        # 마지막에 남아있는 이미지 처리
-        if len(images) > 0:
-            image_results = model.detect_batch(images)
-
-            for j, faces in enumerate(image_results):
-                if len(faces) > 0:
-                    label_path = os.path.join(label_dir, image_names[j].replace(".jpg", ".txt"))
-                    yolo_labels = convert_coordinates_to_yolo_format(images[j].shape[1], images[j].shape[0], faces)
-                    save_bbox_image_xywh(os.path.join(bbox_image_dir_xywh, image_names[j]), images[j], faces)
-                    save_face_txt(label_path, yolo_labels)
-                    copy_count += 1
-                else:
-                    image_path = os.path.join(image_dir, image_names[j])
-                    os.remove(image_path)
+    print("\n완료.")

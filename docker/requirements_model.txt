@@ -11,21 +11,28 @@ ruamel.yaml==0.17.32
 accelerate
 datasets
 hf-doc-builder
-huggingface-hub
+huggingface-hub==0.23.5
 Jinja2
 librosa
 transformers
 
+# torch / CUDA ----------------------------------
+torch==2.1.2+cu121
+torchvision==0.16.2+cu121
+
 # deepfloyd -------------------------------------
 sentencepiece
-xformers
 
 # diffusers-xl model -------------------------------------
-diffusers --upgrade
+diffusers==0.25.1
 invisible_watermark
-transformers
 accelerate
 safetensors
+
+# training --------------------------------------
+pytorch-lightning==2.0.9
+lpips
+omegaconf
 
 # logging -------------------------------------
 tensorboard>=2.4.1
